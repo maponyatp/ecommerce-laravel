@@ -1862,6 +1862,105 @@ A ratchet copied is a ratchet stopped. The value is only a ratchet if the *next*
 
 ---
 
+## Wave 18 — Social Commerce, and a catalogue somebody else holds — ✅ **shipped**
+
+Four packages, green on Tests, Install and Compatibility. 410 tests, 3,886 assertions, every one at **100.0% coverage and PHPStan level 10** — the ceiling PHPStan 2.x offers. [#916](https://github.com/liberusoftware/ecommerce-laravel/issues/916) records what shipped.
+
+| Package | Tests | Assertions | Coverage | PHPStan |
+| --- | ---: | ---: | ---: | ---: |
+| `ecommerce-social-commerce` | 118 | 1,154 | 100.0% | 10 |
+| `…-api` | 120 | 1,060 | 100.0% | 10 |
+| `…-filament` | 91 | 888 | 100.0% | 10 |
+| `…-livewire` | 81 | 787 | 100.0% | 10 |
+
+Namespace `Liberu\Ecommerce\SocialCommerce\`. **Five tables**, `social_`-prefixed, every `tenant_id` NOT NULL. The domain package is at `0.1.1`; the three surfaces at `0.1.0`, requiring `^0.1`.
+
+Picked by §1's rule with the tier diagram exhausted — most-code-first among the remaining epics, at 917 lines over fifteen files. **Saved Lists measures comparably and was eliminated on the same test that eliminated Categories and Navigation last wave**: `module-ecommerce-customer-accounts` already ships `SavedList`, `SavedListItem` and `SavedListShare`. A second epic naming code a shipped module owns is not a second module; checking the shipped tree is now part of picking.
+
+### The catalogue is a copy somebody else holds
+
+The host's Facebook cluster — added a week before this wave, with 766 lines of tests already covering its happy paths — kept its record of what Meta held in `product_facebook_listings`, hanging off `product_id` and `product_variant_id` with `cascadeOnDelete` on both:
+
+```php
+$table->foreignIdFor(Product::class)->constrained()->cascadeOnDelete();
+$table->foreignIdFor(ProductVariant::class)->nullable()->constrained()->cascadeOnDelete();
+```
+
+Delete a variant and the row goes. Meta still has the item: live, buyable, and no longer known to the application. `Product` handles this — `Product::booted()`'s `deleting` hook reads the retailer ids before the cascade — and `ProductVariant::booted()` hooks only `saved`.
+
+Nothing in the host deletes a variant today; neither panel has a variant editor. So the fault is **latent, and the module built on it anyway**, because the Filament package this wave shipped is the most plausible place a variant editor arrives, and the constraint cannot be retrofitted once rows exist.
+
+**A record of something published to a third party is not a cache of local state and cannot be deleted with it.** The module's answer went further than the addendum asked. A listing's subject is an opaque string, never a foreign key:
+
+```php
+// No cascade from the shop: a listing outlives the shop row, because
+// the network still holds the item after a merchant disconnects.
+$table->foreignId('shop_id')->constrained('social_shops')->restrictOnDelete();
+// Opaque, and never a foreign key.
+$table->string('subject_ref');
+```
+
+There is no cascade path into the table at all. Withdrawal is a state a listing has to reach, and it survives the subject that is gone.
+
+### A read nobody performed, reported as a read that found nothing
+
+Host fault 11 is the one that stops anybody noticing the others. `FacebookCatalog::readItemStatuses()` returns `[]` on transport failure, on a non-2xx response, and on a catalogue that genuinely holds nothing. `ReconcileFacebookCatalog` then skips every listing, prints `Reconciled 0 listing(s).` and returns `SUCCESS` — hourly, from `Console/Kernel.php:20`. A merchant whose token was revoked last week has an hourly green tick.
+
+So the module publishes three outcomes where the host had two: it answered, it answered nothing, or **it could not be asked**. `ReconcileOutcome::asked` is the flag, and partial coverage is a counted number rather than the host's `Log::warning` about a catalogue exceeding one page of 1,000.
+
+**And the module reproduced the fault anyway, one step removed.** `ReconcileShopListings` returned early for a shop with nothing to reconcile — *before* opening the channel — so a shop with no adapter bound, no credentials or a revoked token reported `asked: true, considered: 0`, indistinguishable from a shop that answered and had nothing to say. A caller watching `asked && isComplete()` got green from a shop nobody could reach. Found by the `-filament` package, fixed in `0.1.1` by moving one line above the early return: a shop that cannot be reached has not been asked, whether or not it had anything to ask about.
+
+Worth keeping, because it is the wave's own thesis failing its own test: **an early return is a claim about what happened, and a cheap one is the easiest place to make a false claim.** The three-outcome discipline was designed, implemented, tested, and then bypassed by the path that had nothing to do.
+
+### A refusal is a fact, and the wire format has to carry it
+
+The seam is unbound by default, so a publish records the intent and refuses the transmission. `-api` made that visible rather than papering it: a refused publish answers `4xx`/`5xx` **carrying `data` beside `error`** — the persisted listing — because the row exists and a bare error would be a false statement about what happened. A reconciliation with `asked: false` answers **503** carrying `considered`, never 200. `answered: 0` is unreachable as a success.
+
+The four `RefusalReason` cases get four statuses because they are four remedies: `no_channel_bound`→503, `no_credentials`→409, `channel_refused`→409, `channel_unreachable`→502. That breaks the loyalty surface's invariant that `resubmittable` ⟺ 422/503 — `shop_not_connected` is a resubmittable 409 — and the package documented the departure with its own asserted invariant rather than bending to the older one.
+
+`-filament` rendered the same distinction at four sentences, not two: could-not-ask, nothing-to-re-read, complete, and partial-naming-the-silent, asserted as exact strings and colours. `-livewire` carried it to the shopper: a shop is named only when the listing is published **and** the network confirmed it, and when something is silent, *"not on any of our social shops"* is suppressed rather than shown.
+
+### The module's principal action is unreachable by default, on purpose
+
+Wave 17 found a rule about what a module may hold making its own principal action impossible, and found it in a surface. This wave made it structural in the domain instead: no adapter ships here — no Graph URL, no SDK, no API version — so `Contracts\ShopChannel` is unbound and every publish has two outcomes a caller must distinguish.
+
+The domain agent went one step past the instruction and **dropped the `ChannelUnavailable` exception**, on the grounds that an exception is a `catch` a caller can forget and a return value is not. `TransmissionOutcome` carries `transmitted` and a `RefusalReason`. That is the right shape: the build brief's own rule against shipping a class nothing exercises made the exception unreachable once the outcome existed.
+
+### Erasure strands what the network still holds
+
+The sharpest thing found and **not** fixed. `Actions\RedactSubject` sets `subject_ref` to one constant for the whole tenant, so after erasure `RequireWithdrawal($tenant, $originalRef)` returns 0 — the subject-driven path to withdrawal, the one the module was shaped around, can no longer find the listing — and `RequireWithdrawal($tenant, 'redacted')` becomes a tenant-wide write across every erased subject. The action's own docblock promises the opposite.
+
+Three shapes would close it, with different consequences for a published contract, and picking one while closing a wave is the wrong moment. [#1](https://github.com/liberusoftware/module-ecommerce-social-commerce/issues/1) carries the analysis. It is the module's sharpest known defect and it is open.
+
+### Seventeen findings, of which one is fixed
+
+The three surface packages filed sixteen issues against the domain and the domain package fixed one. That ratio is the point of building the surfaces separately: a package that only ever adapts over its own design agrees with itself.
+
+- **`RecordCheckoutHandoff` returns another item's record on a colliding order reference.** `firstOrCreate` keys on `(tenant, shop, order_ref)` with `item_ref` create-only, so recording order X against item B after X was recorded against item A returns **A's row, looking successful**. `-api` detects it and answers `409` — a comparison, not a fix; every other caller still gets the wrong row silently. [#8](https://github.com/liberusoftware/module-ecommerce-social-commerce/issues/8), [#16](https://github.com/liberusoftware/module-ecommerce-social-commerce/issues/16).
+- **`ReconcileOutcome` cannot say why it could not ask.** `asked: false` collapses four causes that `PublishListing` distinguishes with a `RefusalReason`. An operator cannot tell *bind an adapter* from *reconnect the shop* from *the network is down*. [#6](https://github.com/liberusoftware/module-ecommerce-social-commerce/issues/6).
+- **No query enumerates a tenant's shops**, so `-api` ships no `GET /shops` and `-filament` pays one `FindShop` per listing to name one. Writing the scoped read in a controller would put tenancy into three transports. [#5](https://github.com/liberusoftware/module-ecommerce-social-commerce/issues/5), [#7](https://github.com/liberusoftware/module-ecommerce-social-commerce/issues/7).
+- **`CustodyPolicy::ownsHandoff()` has no caller anywhere**, because there is no handoff query — the same gap from the other end. [#12](https://github.com/liberusoftware/module-ecommerce-social-commerce/issues/12).
+- **A refused publish has no queue naming it and no retry inside the module.** The consequence of storing no copy of the content sent: a `pending` listing has no way back from a panel, and `-filament` reported it rather than inventing a form that would publish hand-typed content under a merchant's name. [#14](https://github.com/liberusoftware/module-ecommerce-social-commerce/issues/14).
+- **No way to ask whether a shop can transmit without decrypting its secret.** `ChannelHandle::open()` computes it and reveals as a side effect, so the panel reassembles the check itself. [#13](https://github.com/liberusoftware/module-ecommerce-social-commerce/issues/13).
+
+### Smaller things worth keeping
+
+- **`IsTenantModel` is not a scope.** It is a `creating` hook and a `team()` relation — no global scope, unlike `IsStoreScoped` beside it. So `FacebookConnection` is scoped by exactly one thing, the explicit `where('team_id', …)` inside `forTeam()`, and every other query reads **every merchant's Meta credentials**. A trait named for the boundary it does not enforce is worse than no trait, because the name is what the next model's author reads.
+- **A cross-tenant write justified by a comment.** `RemoveProductFromFacebookCatalog` selects listings by `whereIn('retailer_id', …)` with no tenant predicate, over the note *"retailer_id is unique across the table, so the ids alone are the scope"*, while carrying a `$teamId` it never compares. Only one caller reaches it and that caller passes the product's own ids, so it is unreachable today — the shape is still wrong and the comment is still wrong.
+- **Float money, published publicly and buyable.** `CatalogItemMapper::money()` is `number_format((float) $price, 2)` plus one platform-wide `DEFAULT_CURRENCY`, on a host that has `Currency` and `ProductCurrencyPrice`. A merchant pricing in EUR publishes `12.99 USD` to a social network. The module stores minor units, an ISO 4217 code and an exponent, and a price that cannot name a currency **cannot be built**.
+- **Every merchant's products branded with the platform.** `'brand' => config('app.name')`, twice. And the public link falls back to `url()` — the platform's own host — when a store has no channel, published where shoppers click it.
+- **The publish is queued from a model hook with no `afterCommit`**, and every queue connection in `config/queue.php` sets `'after_commit' => false`. There are three dispatch sites, not the two the addendum found: `adjustInventory()` at `Product.php:461-462` queues directly because `increment()`/`decrement()` bypass `saved`.
+- **The addendum's citations held.** Two loose ranges out of nineteen, no wrong file and no wrong defect, against nine wrong out of eighteen last wave. The only thing that changed is that each `file:line` was read from its own file rather than from a `cat -n` of several at once — which is exactly how the wave 17 errors were produced, and it took a wave to notice.
+- **A brief that generalised from one package was wrong about two.** `presentation-brief.md` said the shipped loyalty surfaces carry two test suites. `-api` carries three, correctly wired; `-filament` and `-livewire` carry two, differently broken. Found by an agent checking the claim instead of following it. The brief now carries the table and says to pattern on `-api`.
+- **`CustodyPolicy` cannot be a Filament policy.** Its methods are `(Model, string $tenantId)`, not Gate's `(User, Model)`, so the presentation brief's *"you call it, you do not re-derive it"* is not what happens in a panel: enforcement is the tenant-scoped `getEloquentQuery()` plus the custody check the domain actions run internally.
+- **The reference package calls `view()`, which its own boundary rule forbids.** `view()` lives in `laravel/framework`, not `illuminate/support`. `module-ecommerce-loyalty-livewire` ships the violation and its boundary test misses it because `view` is absent from the helper list — masked by that package analysing at PHPStan level 1, where the `view-string` error does not surface.
+- **A version bump that touched one of two files reached CI.** `composer.json` moved to `0.1.1` and `module.json` stayed at `0.1.0`; the testbench's boundary assertion caught it, which is what it is for. The local gates had been run *before* the version was edited rather than after. The tag was deleted and recreated, which was available only because nothing consumed it yet.
+- **Three catch blocks were removed rather than left untested**, because the custody checks they guarded cannot fail when the record is resolved through a tenant-scoped query. An unexercised branch is a lying constraint by the same rule that killed `ChannelUnavailable`.
+
+**Ninety-two packages now exist across twenty-three modules, and none is on Packagist.**
+
+---
+
 ## 2. The promotion procedure
 
 Full detail in [`MODULE_DEVELOPMENT.md` §6](./MODULE_DEVELOPMENT.md#6-promotion-and-release). What matters to the *plan* is three properties:
@@ -1888,7 +1987,7 @@ What each wave costs to undo, stated up front so nobody has to guess mid-inciden
 | **1** — `ecommerce-commerce-core` | ~~**Yes, before its first tag.** Demotion is deleting an unreleased repository and restoring the path package~~ — **that window has closed.** Tagged `0.4.0`; the row below now applies | See §2 |
 | **1.5** — schema, resolver, **the scope** | **The scope is reversible; the schema is additive.** Turning the scope off restores the previous (leaking) behaviour instantly | Feature-flag the scope for the first deployment |
 | **2** — schema corrections | **Yes.** It stopped being a data wave: there is no production data to get wrong, so what is left is migrations and code | Revert the commit and rebuild the database |
-| **3+** — extractions | **Yes before the first tag, no after.** After a tag, demotion breaks every consumer and the honest move is deprecation. **Catalog, Pricing, Inventory Ledger, Cart, Checkout, Orders, Fulfillment, Returns, Payment Operations, Refunds, Gift Cards, Multi-Tender Payments, Tax, Shipping, Reviews and Ratings, Promotions, Commerce Customers, Attribution and Analytics, Customer Accounts, Loyalty and Dropshipping are all past it** — all eighty-eight packages are tagged. Nothing consumes them yet, which is not the same thing | See §2 |
+| **3+** — extractions | **Yes before the first tag, no after.** After a tag, demotion breaks every consumer and the honest move is deprecation. **Catalog, Pricing, Inventory Ledger, Cart, Checkout, Orders, Fulfillment, Returns, Payment Operations, Refunds, Gift Cards, Multi-Tender Payments, Tax, Shipping, Reviews and Ratings, Promotions, Commerce Customers, Attribution and Analytics, Customer Accounts, Loyalty, Dropshipping and Social Commerce are all past it** — all ninety-two packages are tagged. Nothing consumes them yet, which is not the same thing | See §2 |
 
 Two asymmetries drive the whole plan:
 
