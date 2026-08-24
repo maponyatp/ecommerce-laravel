@@ -1961,6 +1961,137 @@ The three surface packages filed sixteen issues against the domain and the domai
 
 ---
 
+## Wave 19 — Customer Service Workspace, and a conversation nobody can return to — ✅ **shipped**
+
+Four packages, green on Tests, Install and Compatibility. 476 tests, 4,900 assertions, every one at
+**100.0% coverage and PHPStan level 10**. [#847](https://github.com/liberusoftware/ecommerce-laravel/issues/847)
+records what shipped.
+
+| Package | Tests | Assertions | Coverage | PHPStan |
+| --- | ---: | ---: | ---: | ---: |
+| `ecommerce-customer-service-workspace` | 118 | 1,277 | 100.0% | 10 |
+| `…-api` | 149 | 1,691 | 100.0% | 10 |
+| `…-filament` | 106 | 984 | 100.0% | 10 |
+| `…-livewire` | 103 | 948 | 100.0% | 10 |
+
+Namespace `Liberu\Ecommerce\CustomerServiceWorkspace\`, tables `csw_`-prefixed, every `tenant_id`
+NOT NULL. All four at `0.1.0`; the three surfaces require `^0.1`.
+
+### The epic that was picked and the epic that owned the code
+
+§1's rule put **Commerce Copilot ([#838](https://github.com/liberusoftware/ecommerce-laravel/issues/838))**
+at the top on 1,105 lines of host code, and it was claimed on that basis. Then the epic text was
+read. #838 is permission-bounded product/order/customer search, summaries, catalog assistance, safe
+operational actions and confirmation — a merchant's assistant. The code measured is a customer-to-agent
+live-chat helpdesk: a queue, agent assignment, response times, a satisfaction rating.
+
+Grepped across all 105 epic bodies: **no epic in the map says "chat"**, and none says conversation,
+message, queue, agent or transcript either. The word "queue" appears in #838 only in the
+shared-foundation list, meaning a job queue.
+
+The cluster is placed here because this module owns the support agent's console and the epic's
+"CRM/Support handoff", and a support workspace with no inbound channel has nothing to work on.
+#838 was released back to Todo and the placement stated in the module's ADR, per §1.1's third
+standing constraint.
+
+**Most-code-first measures a module's code, and measuring it requires reading what the module is.**
+The ranking was right and the label on the largest cell was wrong. Last wave added "check the
+shipped modules' `src/Models`" to picking; this one adds "read the epic body before believing the
+count".
+
+### Two session identifiers, and neither is the other
+
+`ChatWidget::mount()` mints one into the browser session and the blade looks conversations up by it:
+
+```php
+// app/Livewire/ChatWidget.php:22
+$this->sessionId = session('chat_session_id', Str::uuid()->toString());
+```
+
+But it starts conversations with an empty body, so the server mints a different one
+(`app/Services/ChatService.php:21`). The id the widget searches by is never the id the server
+stored, so `loadConversation()` cannot succeed. `let conversationId = null` re-runs on every page
+load, so the customer's first message on each page starts a **new queued conversation** and strands
+the last. The widget is on every authenticated page.
+
+One value was doing three jobs — lookup key, ownership proof, and something two places each felt
+entitled to generate. The module separates them: a conversation has an internal identifier, and a
+**participant claim** is issued once, by the module, and is the only thing that proves a claim.
+Resumption is a first-class operation with its own test file, every case of which crosses a
+component instance — the host's resume path was never exercised because its only test passed it an
+id created in the same test, which is the one condition the broken production path never meets.
+
+### Three things get called a note
+
+| Table | Written by | What it is |
+| --- | --- | --- |
+| `order_status_history` | `Order::transitionTo()` | The state-machine audit row. Real, in use, and the orders module's |
+| `order_notes` | nothing | An agent's note. Model, migration and unit tests; zero callers |
+| `order_events` | nothing | A timeline entry with a JSON payload. Same |
+
+`transitionTo()` takes a `$notes` argument and writes it into `order_status_history.notes`. So the
+one note that gets written goes to the state machine's audit row, and the two tables built for
+notes and for a timeline have everything except a caller. Both come here; the audit row stays with
+orders.
+
+### A twentieth fault, found by the module rather than the survey
+
+The wave addendum named nineteen host faults. The domain package found a twentieth while building
+against them: `chat_conversations.store_id` and `team_id` are both `nullable()`. The migration
+argues the case at length and the argument is sound for a backfill — but a conversation created off
+a resolved host then belongs to no merchant, and nothing later makes it belong to one.
+
+Of the nineteen, all nineteen were confirmed real. Seven citations pointed a few lines off — at the
+enclosing declaration rather than the statement — and one named the wrong method: `Order.php:131`
+declares `statusHistory()`. Every citation had been read from its own file rather than from a
+concatenated dump, which is what produced nine wrong citations in wave 17; the remaining drift is a
+smaller error with a different cause.
+
+### Fifteen findings, of which none is fixed
+
+Three surfaces reported fifteen defects in the domain package, [all filed](https://github.com/liberusoftware/module-ecommerce-customer-service-workspace/issues).
+Two were found independently by two surfaces, which is the argument for building them separately
+rather than as one package with three folders.
+
+The sharpest is **erasure**. `ForgetParticipant` overwrites `participant_ref` with a single
+configured token shared by every erasure, and looks rows up by that same column — so an export for
+the token returns every person ever erased, and erasing the token re-erases all of them. The
+reference was made NOT NULL precisely so that a guest has a route to their own data, host fault 15
+being that they had none. Erasure then puts every guest back on the same route. **The module
+reproduced the identifier confusion it was built to fix, in the one path where it does the most
+damage.**
+
+Second: `Conversation::transitionTo()` decides against the loaded model and saves, with no lock and
+no version column. Two agents taking the same queued conversation both pass the check and both
+write. Ratings and action requests are arbitrated by unique indexes, so the module already accepts
+that a guard in PHP is not a guard; state is the one place it does not.
+
+Third: `Outcome::refused()` carries a reason and no id, while `RequestAction` persists the row
+before transmitting. A caller told "refused" is told nothing was recorded, and a row exists. That is
+decision 5's own rule failing at one remove, and both the API and Filament surfaces worked around it
+independently, differently.
+
+### Smaller things worth keeping
+
+- Two durable brief corrections outlast this wave. `module-build-brief.md` said an append-only rule
+  is enforced "by an index, not by a guard" — wrong, and the shipped reference package already does
+  both: an index arbitrates a concurrent append, and nothing about a unique index stops an `UPDATE`.
+  And `presentation-brief.md` gained a gates section, because §6 is the Livewire package and a
+  dispatch that sends an agent there for the gate commands sends it to the wrong place.
+- The testbench forbids importing a domain model anywhere in an `-api` package's `src/`, including
+  for a closure type hint or a constant. Neither brief mentioned it; a first draft would have gone
+  red in CI.
+- The API package throttles every route rather than a chosen subset, on the grounds that a list of
+  which routes deserve a limit is a list that falls behind. Host fault 16 is that list, three routes
+  in.
+- The participant claim travels in a header. A cookie was rejected explicitly: ambient authority the
+  browser attaches by itself is a second session-shaped value beside the reference, which is this
+  wave's shaping fault one identifier along.
+
+**Ninety-six packages now exist across twenty-four modules, and none is on Packagist.**
+
+---
+
 ## 2. The promotion procedure
 
 Full detail in [`MODULE_DEVELOPMENT.md` §6](./MODULE_DEVELOPMENT.md#6-promotion-and-release). What matters to the *plan* is three properties:
@@ -1987,7 +2118,7 @@ What each wave costs to undo, stated up front so nobody has to guess mid-inciden
 | **1** — `ecommerce-commerce-core` | ~~**Yes, before its first tag.** Demotion is deleting an unreleased repository and restoring the path package~~ — **that window has closed.** Tagged `0.4.0`; the row below now applies | See §2 |
 | **1.5** — schema, resolver, **the scope** | **The scope is reversible; the schema is additive.** Turning the scope off restores the previous (leaking) behaviour instantly | Feature-flag the scope for the first deployment |
 | **2** — schema corrections | **Yes.** It stopped being a data wave: there is no production data to get wrong, so what is left is migrations and code | Revert the commit and rebuild the database |
-| **3+** — extractions | **Yes before the first tag, no after.** After a tag, demotion breaks every consumer and the honest move is deprecation. **Catalog, Pricing, Inventory Ledger, Cart, Checkout, Orders, Fulfillment, Returns, Payment Operations, Refunds, Gift Cards, Multi-Tender Payments, Tax, Shipping, Reviews and Ratings, Promotions, Commerce Customers, Attribution and Analytics, Customer Accounts, Loyalty, Dropshipping and Social Commerce are all past it** — all ninety-two packages are tagged. Nothing consumes them yet, which is not the same thing | See §2 |
+| **3+** — extractions | **Yes before the first tag, no after.** After a tag, demotion breaks every consumer and the honest move is deprecation. **Catalog, Pricing, Inventory Ledger, Cart, Checkout, Orders, Fulfillment, Returns, Payment Operations, Refunds, Gift Cards, Multi-Tender Payments, Tax, Shipping, Reviews and Ratings, Promotions, Commerce Customers, Attribution and Analytics, Customer Accounts, Loyalty, Dropshipping, Social Commerce and Customer Service Workspace are all past it** — all ninety-six packages are tagged. Nothing consumes them yet, which is not the same thing | See §2 |
 
 Two asymmetries drive the whole plan:
 
