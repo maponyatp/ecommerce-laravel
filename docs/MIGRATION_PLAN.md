@@ -2092,6 +2092,154 @@ independently, differently.
 
 ---
 
+## Wave 20 — Invoices and Documents, and a document that changes after it is issued — ✅ **shipped**
+
+Four packages, green on Tests, Install and Compatibility. 438 tests, 4,348 assertions, every one at
+**100.0% coverage and PHPStan level 10**. [#863](https://github.com/liberusoftware/ecommerce-laravel/issues/863)
+records what shipped.
+
+| Package | Tests | Assertions | Coverage | PHPStan |
+| --- | ---: | ---: | ---: | ---: |
+| `ecommerce-invoices-and-documents` | 138 | 629 | 100.0% | 10 |
+| `…-api` | 115 | 1,331 | 100.0% | 10 |
+| `…-filament` | 105 | 1,528 | 100.0% | 10 |
+| `…-livewire` | 80 | 860 | 100.0% | 10 |
+
+Namespace `Liberu\Ecommerce\InvoicesAndDocuments\`, tables `invoicing_`-prefixed, every `tenant_id`
+NOT NULL. All four at `0.1.0`; the three surfaces require `^0.1`.
+
+### The host's invoice is a live view, not a document
+
+Almost everything the invoice prints is read through a relation at render time. The lines are a
+`belongsToMany` straight onto the live catalogue (`app/Models/Invoice.php:87-90`), the rendered line
+description is the product's current name (`resources/views/invoices/show.blade.php:27`), and the
+buyer's identity is read the same way (`:11`). Only the pivot's quantity and price and the header
+total are frozen.
+
+So renaming a product rewrites every past invoice that contained it; deleting a product **deletes
+invoice lines** (`invoice_product.product_id` is `cascadeOnDelete`) while the frozen header total
+keeps printing, leaving a document whose lines no longer add up to its total; and because `Product`
+is store-scoped, an invoice read on a request that resolved to a different channel silently returns
+fewer lines than it was issued with.
+
+That is the module: **issue freezes.** A document copies, once, everything it will ever display —
+seller, buyer, each line's description, quantity, unit price, rate, tax, the totals and the
+currency — and afterwards reads none of it from anywhere else. An issued document has no update
+path and no delete path, in the domain, the API or the panel; a correction is a credit note.
+
+### Three things get called an invoice number
+
+| What | Where | What it is |
+| --- | --- | --- |
+| `#{{ $invoice->id }}`, labelled "Invoice #" | `resources/views/invoices/index.blade.php:13`, `:23` | The `invoices` primary key, shared across every store and tenant |
+| The "Order" column | `app/Filament/App/Resources/Invoices/InvoiceResource.php:69` | The `orders` primary key. The host has no `order_number` column at all |
+| `OrderNumberSequence::format()` | `module-ecommerce-commerce-core` | A real per-store allocated sequence — for orders, in a module nothing consumes yet |
+
+The `invoices` table has no number column. A customer looking at their invoice is being shown the
+platform's running total of invoices ever issued.
+
+### The boundary that had to be argued rather than asserted
+
+`commerce-core` shipped `AllocateOrderNumber` in wave 1 and wrote its trade-off down: *"A gap is
+fine and a duplicate is not … and holding the lock until the order commits would put the payment
+gateway's latency inside a lock every other checkout waits on."*
+
+Both halves are correct for an order number and neither carries to a fiscal document series. A gap
+is not fine — several EU jurisdictions require the series to be gapless — and the latency argument
+does not apply, because nothing like a gateway sits inside issuing a document: the sale was copied
+at draft, the lines are already rows, and the issuing transaction is one `UPDATE` and one `INSERT`.
+So this module holds the lock, spends the number inside the transaction that writes the document,
+and a rollback returns it. The grain differs too: commerce-core's sequence is unique on
+`(store_id, prefix)`, and the obligation to file belongs to the merchant, so a document series
+belongs to one tenant.
+
+Gaplessness landed as a **per-series policy** rather than a universal invariant, since jurisdictions
+differ, with a burned-number record accounting for any hole. §1.1's third standing constraint was
+satisfied by a boundary notice on
+[#839](https://github.com/liberusoftware/ecommerce-laravel/issues/839), which is closed — a comment
+rather than a reopen.
+
+### Twenty-five faults, and nine more the module found
+
+The wave addendum named twenty-five host faults from primary sources. Building against them turned
+up nine more, of which four are worse than anything the survey caught:
+
+- **Invoices are invisible to the merchant that issued them.** `Invoice` uses `IsStoreScoped` and
+  not `IsTenantModel`; `team_id` is nullable with no default and nothing writes it. The App panel is
+  Team-tenanted, so `Team::invoices()` returns empty forever — and because the store stamp is also
+  absent on anything generated from a webhook, those invoices are visible in neither the panel nor
+  the storefront.
+- **Both VAT filings aggregate every merchant on the deployment into one return.** `vat:oss-report`
+  and `vat:ec-sales-list` have no `--store` or `--team`, and the store scope is inert in a console
+  context. Bigger than the fault the survey had named, which was only that the returns cite no
+  invoice.
+- **Both filings print a currency they never read**: `config('ecommerce.currency', 'EUR')`, where
+  the key is `default_currency` and its default is `'USD'`. A filing labelling dollar amounts as
+  euro.
+- **Three independent cascade paths delete financial records.** Deleting a customer, an order or a
+  team hard-deletes invoices, and there are no soft deletes — while `InvoicePolicy` ships
+  `restore`, `restoreAny`, `forceDelete` and `forceDeleteAny` as if there were.
+
+Of the twenty-five, all were confirmed. One citation was wrong: fault 16 gave
+`Pages/EditInvoice.php:29` in a 20-line file, because that pair of small files had been read in one
+`cat -n` — the cumulative-numbering mistake the addendum's own header warns about, made in the
+document that warns about it. Two surfaces reported it independently.
+
+### Fourteen findings, of which none is fixed
+
+Three surfaces reported fourteen defects in the domain package,
+[all filed](https://github.com/liberusoftware/module-ecommerce-invoices-and-documents/issues).
+
+The sharpest is **delivery**. `RecordDelivery` writes the attempt row — spending the
+`(tenant_id, reference)` unique index — and only then asks for a transport. With none bound it
+refuses, having already spent the key, so repeating the identical call reports `already_recorded`
+and never transmits. The attempt sits `Pending` under that reference permanently. "Persist before
+transmitting" was followed; what the rule also needs is that the persisted row stay retryable. The
+API package had to publish three delivery failures as **not** resubmittable because of it, and tell
+operators to resend under a new reference, which is idempotency advice that defeats idempotency.
+
+Second: **`ForgetParticipant` erases the note before the retention check that would have refused.**
+The action declines to redact buyer identity on a retained document on the stated grounds that the
+law requires the document unchanged — having already nulled that document's note, which routinely
+carries a statutory statement such as "reverse charge applies". The refusal it returns is accurate
+about what it declined and silent about what it did.
+
+Third: **`CustodyPolicy::buyerMayRead` has no state condition**, so a draft passes. A buyer-facing
+surface built on the policy alone would show a customer an unnumbered, unissued document — the
+host's defect reappearing one layer up. The Livewire package excluded it in its own components,
+which is a custody decision made in a surface rather than in the policy.
+
+Fourth, and the one a test found rather than a review: **`BurnedNumber` has no immutability guard**
+while `Document`, `DocumentLine` and `DocumentEvent` all have one. A burned number is the only row
+that accounts for a hole in a series, and deleting it makes the hole unexplained.
+
+### Smaller things worth keeping
+
+- **Two brief bugs that would have cost every later wave.** `presentation-brief.md` §6a gave the
+  PHPStan command without `-l`, and the shared `phpstan.neon` declares no level on purpose — so as
+  written it analysed nothing and answered *"use the --level option"*. And `module-build-brief.md`
+  required `permissions: contents: read` in prose while its copyable YAML snippet omitted it. Both
+  fixed at source; the workflow snippet now carries what the sentence asked for, because a snippet
+  is what gets copied.
+- **Two decisions in the addendum were too narrow and the domain agent widened them, correctly.**
+  `void` reachable only from `issued` leaves no way to discard a draft in a module with no delete
+  path, and a delivered document found wrong must still be voidable. And the per-rate tax summary
+  shipped as a computed value rather than a table, because a stored derivation is exactly what the
+  build brief forbids.
+- **The `-api` package made the refusal reason the wire error code structurally**, via a `match`
+  over all twenty `RefusalReason` cases, so a reason added to the domain fails static analysis in
+  the adapter rather than becoming a 500.
+- **No package ships a PDF.** Rendering is an unbound seam and a domain package installing a PDF
+  library forces one on every consumer. The module produces a render model; a host that binds a
+  renderer serves it from its own route.
+- **The Filament package declares the `app` panel, not `admin`.** Both host panels resolve `Team`
+  tenancy, but defaulting the filing cabinet onto the platform-admin panel is where host fault 14
+  lives.
+
+**One hundred packages now exist across twenty-five modules, and none is on Packagist.**
+
+---
+
 ## 2. The promotion procedure
 
 Full detail in [`MODULE_DEVELOPMENT.md` §6](./MODULE_DEVELOPMENT.md#6-promotion-and-release). What matters to the *plan* is three properties:
@@ -2118,7 +2266,7 @@ What each wave costs to undo, stated up front so nobody has to guess mid-inciden
 | **1** — `ecommerce-commerce-core` | ~~**Yes, before its first tag.** Demotion is deleting an unreleased repository and restoring the path package~~ — **that window has closed.** Tagged `0.4.0`; the row below now applies | See §2 |
 | **1.5** — schema, resolver, **the scope** | **The scope is reversible; the schema is additive.** Turning the scope off restores the previous (leaking) behaviour instantly | Feature-flag the scope for the first deployment |
 | **2** — schema corrections | **Yes.** It stopped being a data wave: there is no production data to get wrong, so what is left is migrations and code | Revert the commit and rebuild the database |
-| **3+** — extractions | **Yes before the first tag, no after.** After a tag, demotion breaks every consumer and the honest move is deprecation. **Catalog, Pricing, Inventory Ledger, Cart, Checkout, Orders, Fulfillment, Returns, Payment Operations, Refunds, Gift Cards, Multi-Tender Payments, Tax, Shipping, Reviews and Ratings, Promotions, Commerce Customers, Attribution and Analytics, Customer Accounts, Loyalty, Dropshipping, Social Commerce and Customer Service Workspace are all past it** — all ninety-six packages are tagged. Nothing consumes them yet, which is not the same thing | See §2 |
+| **3+** — extractions | **Yes before the first tag, no after.** After a tag, demotion breaks every consumer and the honest move is deprecation. **Catalog, Pricing, Inventory Ledger, Cart, Checkout, Orders, Fulfillment, Returns, Payment Operations, Refunds, Gift Cards, Multi-Tender Payments, Tax, Shipping, Reviews and Ratings, Promotions, Commerce Customers, Attribution and Analytics, Customer Accounts, Loyalty, Dropshipping, Social Commerce, Customer Service Workspace and Invoices and Documents are all past it** — all one hundred packages are tagged. Nothing consumes them yet, which is not the same thing | See §2 |
 
 Two asymmetries drive the whole plan:
 
