@@ -8,11 +8,16 @@ use Illuminate\Validation\ValidationException;
 
 class CheckoutPricingService
 {
+    public const SUPPLIER_UNAVAILABLE = 'Supplier ordering is not available at checkout. Use normal recipient delivery and the optional gift message instead.';
+
     // Invoices and order components use DECIMAL(10,2), narrower than orders.total_amount.
     private const MAX_AMOUNT = 99999999.99;
 
     public function calculate(array $cart, array $address, ?string $couponCode = null, bool $dropship = false): array
     {
+        if ($dropship) {
+            throw ValidationException::withMessages(['dropship' => self::SUPPLIER_UNAVAILABLE]);
+        }
         $subtotal = $this->checkedAmount(collect($cart)->sum(fn ($item) => $item['price'] * $item['quantity']));
         $physical = collect($cart)->contains(fn ($item) => ! $item['is_downloadable']);
         $discount = 0;
@@ -36,9 +41,7 @@ class CheckoutPricingService
                 throw ValidationException::withMessages(['shipping_method_id' => 'This delivery method is not available for your cart.']);
             }
             $deliverySlot = app(DeliverySchedulingService::class)->quote($method, filled($address['delivery_slot_id'] ?? null) ? (int) $address['delivery_slot_id'] : null);
-            $shipping = $dropship
-                ? $shippingService->calculateDropShippingCost($method, $cart, $address['shipping_address'])
-                : $shippingService->calculateShippingCost($method, $cart, $address['shipping_address']);
+            $shipping = $shippingService->calculateShippingCost($method, $cart, $address['shipping_address']);
             // Use explicit destination data, never infer a US address from free text.
             // Tax rules/rates remain merchant-configured; no rates are introduced here.
             $tax = app(TaxService::class)->calculateTax(max(0, $subtotal - $discount),

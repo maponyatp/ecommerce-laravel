@@ -3,11 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Factories\PaymentGatewayFactory;
-use App\Jobs\DispatchDropshippingOrder;
 use App\Models\Coupon;
 use App\Models\Order;
 use App\Models\PaymentTransaction;
-use App\Notifications\SupplierFailureNotification;
 use App\Services\CartService;
 use App\Services\CheckoutPricingService;
 use App\Services\CouponService;
@@ -25,7 +23,6 @@ use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Facades\Validator;
@@ -131,11 +128,11 @@ class CheckoutController extends Controller
             ...$this->deliveryRules($hasPhysicalProducts),
             'payment_method' => 'nullable|in:ikhokha,stripe',
             'stripeToken' => 'nullable|string|max:255',
-            'dropship' => 'sometimes|in:on,1,0',
-            'recipient_name' => 'required_if:dropship,on,1|nullable|string|max:255',
-            'recipient_email' => 'required_if:dropship,on,1|nullable|email|max:255',
+            ...$this->supplierOptionsRules(),
+            'recipient_name' => 'nullable|string|max:255',
+            'recipient_email' => 'nullable|email|max:255',
             'gift_message' => 'nullable|string|max:2000',
-        ]);
+        ], $this->supplierOptionsMessages());
 
         if ($validator->fails()) {
             return redirect()->back()
@@ -205,8 +202,8 @@ class CheckoutController extends Controller
                     'status' => 'pending',
                     'payment_status' => 'pending',
                     'shipping_status' => $this->hasPhysicalProducts($cart) ? 'unfulfilled' : 'not_required',
-                    'is_dropshipped' => $hasPhysicalProducts && $request->boolean('dropship'),
-                    'recipient_name' => $request->recipient_name,
+                    'is_dropshipped' => false,
+                    'recipient_name' => $hasPhysicalProducts ? $request->delivery_contact_name : $request->recipient_name,
                     'recipient_email' => $request->recipient_email,
                     'gift_message' => $request->gift_message,
                 ]);
@@ -308,31 +305,6 @@ class CheckoutController extends Controller
             $order = $payments->markPaid($transaction, ['responseCode' => '00']);
         } else {
             $order = $payments->settleFree($order);
-        }
-
-        // If dropshipping, queue supplier order placement
-        if ($order->is_dropshipped && $order->inventory_committed_at && $order->status === 'processing') {
-            try {
-                $supplierId = $request->input('supplier_id', 'dropxl');
-                // persist chosen supplier so admin can see it immediately
-                $order->update(['supplier_id' => $supplierId]);
-
-                // dispatch a job to place the supplier order asynchronously
-                DispatchDropshippingOrder::dispatch($order->id, $supplierId);
-
-                // set temporary status indicating background placement
-                $order->update(['status' => 'supplier_queued']);
-
-            } catch (\Exception $e) {
-                \Log::error('Dropshipping dispatch error: '.$e->getMessage());
-                $order->update(['status' => 'supplier_failed']);
-
-                Notification::route('mail', config('mail.from.address'))
-                    ->notify(new SupplierFailureNotification("Error queuing dropshipping order for order {$order->id}: ".$e->getMessage()));
-
-                return redirect()->to($this->confirmationUrl($order))
-                    ->with('warning', 'Order placed but an error occurred while queuing the supplier order. Our team will follow up.');
-            }
         }
 
         // Clear cart and coupon
@@ -446,7 +418,7 @@ class CheckoutController extends Controller
     {
         try {
             return app(CheckoutPricingService::class)->calculate(
-                $cart, $request->all(), Session::get('coupon.code'), $request->boolean('dropship'));
+                $cart, $request->all(), Session::get('coupon.code'));
         } catch (ValidationException $exception) {
             if (isset($exception->errors()['coupon'])) {
                 Session::forget('coupon');
@@ -459,7 +431,7 @@ class CheckoutController extends Controller
     {
         $cart = $this->hydrateCart(app(CartService::class)->current());
         abort_if(empty($cart), 422, 'Your cart is empty.');
-        $request->validate($this->deliveryRules($this->hasPhysicalProducts($cart)) + ['dropship' => 'sometimes|in:on,1,0']);
+        $request->validate($this->deliveryRules($this->hasPhysicalProducts($cart)) + $this->supplierOptionsRules(), $this->supplierOptionsMessages());
 
         $totals = $this->priceCart($request, $cart);
         Session::put('checkout_quote', $this->quoteFingerprint($request, $cart, $totals));
@@ -472,6 +444,18 @@ class CheckoutController extends Controller
         return hash('sha256', json_encode([$cart, $totals,
             $request->only(array_keys($this->deliveryRules($this->hasPhysicalProducts($cart)))),
             $request->boolean('dropship')], JSON_THROW_ON_ERROR));
+    }
+
+    private function supplierOptionsRules(): array
+    {
+        // Preserve an explicitly disabled legacy flag, but never initiate supplier purchasing.
+        return ['dropship' => 'nullable|in:0', 'supplier_id' => 'prohibited'];
+    }
+
+    private function supplierOptionsMessages(): array
+    {
+        return ['dropship.in' => CheckoutPricingService::SUPPLIER_UNAVAILABLE,
+            'supplier_id.prohibited' => CheckoutPricingService::SUPPLIER_UNAVAILABLE];
     }
 
     protected function processStripePayment($order, $stripeToken)

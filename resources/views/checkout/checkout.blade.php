@@ -101,8 +101,8 @@
                         </div>
                     </div>
 
-                    @if($hasPhysicalProducts)
                     @include('checkout.billing-details')
+                    @if($hasPhysicalProducts)
 
                     <!-- Shipping Information -->
                     <div class="bg-white rounded-xl shadow-sm border border-gray-200 mb-6">
@@ -180,69 +180,18 @@
 
                             @include('checkout.delivery-windows')
 
-                            <!-- Drop Shipping Option -->
-                            <div class="pt-2 border-t border-gray-100">
-                                <label class="flex items-start cursor-pointer group">
-                                    <div class="flex items-center h-5 mt-0.5">
-                                        <input
-                                            type="checkbox"
-                                            id="dropship"
-                                            name="dropship"
-                                            class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                                        >
-                                    </div>
-                                    <div class="ml-3">
-                                        <span class="text-sm font-medium text-gray-700 group-hover:text-gray-900">Ship directly to recipient</span>
-                                        <p class="text-xs text-gray-500 mt-0.5">Enable drop shipping to send directly to a third party</p>
-                                    </div>
-                                </label>
-                            </div>
-
-                            <!-- Dropship Supplier (hidden by default) -->
-                            <div id="dropship-supplier" class="hidden pt-2">
-                                <label for="supplier_id" class="block text-sm font-medium text-gray-700 mb-1.5">Select Supplier</label>
-                                <select
-                                    id="supplier_id"
-                                    name="supplier_id"
-                                    class="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
-                                >
-                                    @foreach(config('dropshipping.suppliers') as $supplierId => $supplier)
-                                        <option value="{{ $supplierId }}">{{ $supplier['name'] }}</option>
-                                    @endforeach
-                                </select>
-                            </div>
-
-                            <!-- Recipient Info (hidden by default) -->
-                            <div id="recipient-info" class="hidden space-y-4 pt-2 border-t border-gray-100">
-                                <h3 class="text-sm font-semibold text-gray-800">Recipient Details</h3>
+                            <!-- Flower gifting uses the normal recipient delivery workflow. -->
+                            <div id="gift-details" class="space-y-4 pt-2 border-t border-gray-100">
+                                <h3 class="text-sm font-semibold text-gray-800">Sending flowers as a gift?</h3>
+                                <p id="gift-message-help" class="text-sm text-gray-500">We deliver to the recipient entered above. No extra gifting fee; your selected delivery rate still applies. Receipts go to your email, not the recipient.</p>
                                 <div>
-                                    <label for="recipient_name" class="block text-sm font-medium text-gray-700 mb-1.5">Recipient Name</label>
-                                    <input
-                                        type="text"
-                                        id="recipient_name"
-                                        name="recipient_name"
-                                        value="{{ old('recipient_name') }}"
-                                        placeholder="Full name"
-                                        class="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
-                                    >
-                                </div>
-                                <div>
-                                    <label for="recipient_email" class="block text-sm font-medium text-gray-700 mb-1.5">Recipient Email</label>
-                                    <input
-                                        type="email"
-                                        id="recipient_email"
-                                        name="recipient_email"
-                                        value="{{ old('recipient_email') }}"
-                                        placeholder="recipient@example.com"
-                                        class="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
-                                    >
-                                </div>
-                                <div>
-                                    <label for="gift_message" class="block text-sm font-medium text-gray-700 mb-1.5">Gift Message <span class="text-gray-400 font-normal">(Optional)</span></label>
+                                    <label for="gift_message" class="block text-sm font-medium text-gray-700 mb-1.5">Gift message <span class="text-gray-400 font-normal">(optional)</span></label>
                                     <textarea
                                         id="gift_message"
                                         name="gift_message"
                                         rows="2"
+                                        maxlength="2000"
+                                        aria-describedby="gift-message-help"
                                         placeholder="Add a personal message..."
                                         class="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors resize-none"
                                     >{{ old('gift_message') }}</textarea>
@@ -471,19 +420,6 @@
 <script>
     let checkoutQuotedTotal = null;
     document.addEventListener('DOMContentLoaded', function() {
-        // Toggle drop shipping recipient info
-        const dropshipCheckbox = document.getElementById('dropship');
-        const recipientInfo = document.getElementById('recipient-info');
-        const dropshipSupplier = document.getElementById('dropship-supplier');
-
-        if (dropshipCheckbox) {
-            dropshipCheckbox.addEventListener('change', function() {
-                const isChecked = this.checked;
-                recipientInfo.classList.toggle('hidden', !isChecked);
-                dropshipSupplier.classList.toggle('hidden', !isChecked);
-            });
-        }
-
         const checkoutForm = document.getElementById('checkout-form');
         const quoteStatus = document.getElementById('quote-status');
         let quoteReady = false;
@@ -526,7 +462,7 @@
             quoteStatus.textContent = 'Calculating your order total…';
             quoteTimer = setTimeout(() => updateQuote(version), 500);
         }
-        checkoutForm.querySelectorAll('[name^="shipping_"], [name^="delivery_"], [name="dropship"]').forEach(input => {
+        checkoutForm.querySelectorAll('[name^="shipping_"], [name^="delivery_"]').forEach(input => {
             input.addEventListener('input', scheduleQuote);
             input.addEventListener('change', scheduleQuote);
         });
