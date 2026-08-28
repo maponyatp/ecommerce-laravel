@@ -9,19 +9,9 @@ FROM php:${PHP_VERSION}-cli-alpine AS composer-deps
 
 WORKDIR /app
 
-# Install required extensions for composer install.
-#
-# bcmath is here because moneyphp/money (via laravel/cashier) hard-requires it,
-# and `composer install` validates platform requirements even with --no-scripts
-# --no-autoloader. Without it this stage fails outright:
-#
-#   moneyphp/money v4.9.0 requires ext-bcmath * -> it is missing from your system
-#
-# The final stage installs bcmath already, so only this build stage was short.
-# Keep this list a superset of the ext-* the locked tree requires, minus the ones
-# ignored below.
+# Install required extensions for composer install
 ADD --chmod=0755 https://github.com/mlocati/docker-php-extension-installer/releases/latest/download/install-php-extensions /usr/local/bin/
-RUN install-php-extensions intl sockets zip bcmath
+RUN install-php-extensions intl sockets zip
 
 # Install Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
@@ -38,46 +28,6 @@ RUN composer install \
     --no-scripts \
     --prefer-dist \
     --ignore-platform-req=ext-pcntl
-
-###########################################
-# Frontend asset stage
-###########################################
-# The image used to ship public/build/manifest.json and no assets at all: nothing
-# ran npm, and only the manifest was committed (public/build is gitignored). Every
-# @vite tag in layouts/app.blade.php and components/guest-layout.blade.php resolved
-# against a manifest naming 32 files that were not in the image, so all 32 404'd.
-# The app booted and served with no CSS and no JS.
-#
-# Node 20: package.json declares no engines, but vite 8 needs >= 20.19, and 20 is
-# what the php image ships (v20.20.2), so the two agree.
-#
-# Ordered after composer-deps because it needs that stage's vendor tree (below).
-FROM node:20-alpine AS assets
-
-WORKDIR /app
-
-# Lock first, so a source-only change reuses the npm ci layer.
-COPY package.json package-lock.json ./
-RUN npm ci
-
-# The whole (dockerignored) tree, not just resources/: the CSS is Tailwind v4 via
-# `@import 'tailwindcss'` with no @source directive, so Tailwind auto-detects what
-# to scan. It needs the blade views AND app/ — Filament's PHP carries class
-# strings — or it emits a stylesheet with the utilities stripped out, which is
-# worse than a 404 because it looks like it worked.
-COPY . .
-
-# resources/css/filament/admin/theme.css does
-# `@import '../../../../vendor/filament/filament/resources/css/theme.css'`, so
-# building the CSS needs the PHP vendor tree. Taken from composer-deps rather than
-# the build context on purpose: .dockerignore excludes vendor/ precisely so a
-# developer's dev-dependency-laden copy cannot ride in, and this stage gets the
-# same --no-dev tree the application itself ships.
-COPY --from=composer-deps /app/vendor ./vendor
-
-# Builds all three vite inputs: resources/css/app.css, resources/js/app.js and
-# resources/css/filament/admin/theme.css.
-RUN npm run build
 
 ###########################################
 # Main application stage
@@ -181,11 +131,6 @@ COPY --chown=${USER}:${USER} composer.json composer.lock ./
 
 # Copy application code first so autoloader can resolve all files
 COPY --chown=${USER}:${USER} . .
-
-# After `COPY . .`, deliberately: the built assets must land on top of the source
-# tree, not be overwritten by it. public/build is excluded in .dockerignore so
-# the only copy that can win here is the one the assets stage just built.
-COPY --chown=${USER}:${USER} --from=assets /app/public/build ./public/build
 
 # Generate optimized autoloader now that all app files are present
 RUN composer dump-autoload --classmap-authoritative --no-dev && \

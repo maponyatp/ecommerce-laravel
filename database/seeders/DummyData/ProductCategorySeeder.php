@@ -14,39 +14,34 @@ class ProductCategorySeeder extends Seeder
      */
     private array $categories = [
         [
-            'name' => 'Electronics',
-            'slug' => 'electronics',
-            'description' => 'Gadgets, devices, and home appliances.',
+            'name' => 'Roses',
+            'slug' => 'roses',
+            'description' => 'Fresh, romantic roses of all colors.',
         ],
         [
-            'name' => 'Clothing',
-            'slug' => 'clothing',
-            'description' => 'Men\'s, women\'s, and kids\' fashion.',
+            'name' => 'Lilies',
+            'slug' => 'lilies',
+            'description' => 'Elegant white and colored lilies.',
         ],
         [
-            'name' => 'Books',
-            'slug' => 'books',
-            'description' => 'Fiction, non-fiction, and educational books.',
+            'name' => 'Tulips',
+            'slug' => 'tulips',
+            'description' => 'Vibrant, cheerful spring tulips.',
         ],
         [
-            'name' => 'Home & Living',
-            'slug' => 'home',
-            'description' => 'Furniture, decor, and essentials for every room.',
+            'name' => 'Orchids',
+            'slug' => 'orchids',
+            'description' => 'Exotic potted moth orchids.',
         ],
         [
-            'name' => 'Beauty',
-            'slug' => 'beauty',
-            'description' => 'Skincare, cosmetics, and personal care products.',
+            'name' => 'Spring Blooms',
+            'slug' => 'spring-blooms',
+            'description' => 'Freshly handpicked spring bouquets.',
         ],
         [
-            'name' => 'Sports',
-            'slug' => 'sports',
-            'description' => 'Sporting goods, fitness gear, and outdoor equipment.',
-        ],
-        [
-            'name' => 'Toys',
-            'slug' => 'toys',
-            'description' => 'Kids toys, games, and family entertainment.',
+            'name' => 'Sunflowers',
+            'slug' => 'sunflowers',
+            'description' => 'Bright, happy golden sunflowers.',
         ],
     ];
 
@@ -56,7 +51,7 @@ class ProductCategorySeeder extends Seeder
     public function run(): void
     {
         foreach ($this->categories as $category) {
-            ProductCategory::factory()->create($category);
+            ProductCategory::create($category);
         }
     }
 }

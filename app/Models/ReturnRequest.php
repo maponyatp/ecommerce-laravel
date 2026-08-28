@@ -23,11 +23,17 @@ class ReturnRequest extends Model
         'approved_by',
         'approved_at',
         'received_at',
+        'created_by',
+        'version',
+        'request_key',
+        'request_fingerprint',
+        'resolution',
     ];
 
     protected $casts = [
         'approved_at' => 'datetime',
         'received_at' => 'datetime',
+        'version' => 'integer',
     ];
 
     protected static function booted(): void
@@ -60,62 +66,11 @@ class ReturnRequest extends Model
     }
 
     /**
-     * Approve the return request and spawn a refund for the returned items.
-     *
-     * Idempotent: re-approving is a no-op (returns null) so the customer is
-     * never refunded twice. Returns the processed Refund, or null when there is
-     * nothing itemized to refund.
+     * Approve the return request
      */
-    public function approve(?int $userId = null): ?Refund
+    public function approve(?int $userId = null): void
     {
-        if ($this->status === 'approved') {
-            return null;
-        }
-
-        $this->update([
-            'status' => 'approved',
-            'approved_by' => $userId,
-            'approved_at' => now(),
-        ]);
-
-        return $this->spawnRefund($userId);
-    }
-
-    /**
-     * Build a Refund (+ items) from the returned lines and run it through the
-     * refund engine (gateway void → restock → order state transition).
-     */
-    private function spawnRefund(?int $userId): ?Refund
-    {
-        $lines = $this->items()->with('orderItem')->get()
-            ->filter(fn (ReturnRequestItem $item) => $item->orderItem !== null);
-
-        if ($lines->isEmpty()) {
-            return null;
-        }
-
-        $refund = Refund::create([
-            'order_id' => $this->order_id,
-            'amount' => $lines->sum(fn (ReturnRequestItem $item) => (float) $item->orderItem->price * $item->quantity),
-            'reason' => $this->reason,
-            'status' => 'pending',
-            'refund_method' => 'original_payment',
-            'restock_items' => true,
-        ]);
-
-        foreach ($lines as $item) {
-            $refund->items()->create([
-                'order_item_id' => $item->order_item_id,
-                'quantity' => $item->quantity,
-                'amount' => (float) $item->orderItem->price * $item->quantity,
-                // ponytail: damaged goods can't be resold — everything else restocks.
-                'restock' => $item->condition !== 'damaged',
-            ]);
-        }
-
-        $refund->process($userId);
-
-        return $refund;
+        throw new \LogicException('Use ReturnManagementService with an authorized actor and current revision.');
     }
 
     /**
@@ -123,9 +78,11 @@ class ReturnRequest extends Model
      */
     public function markAsReceived(): void
     {
-        $this->update([
-            'status' => 'received',
-            'received_at' => now(),
-        ]);
+        throw new \LogicException('Use ReturnManagementService to verify received quantities and retain the audit history.');
+    }
+
+    public function changes(): HasMany
+    {
+        return $this->hasMany(ReturnRequestChange::class);
     }
 }

@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\PaypalSubscription;
 use App\Services\PaymentGatewayService;
 use App\Services\SubscriptionService;
 use Illuminate\Http\Request;
@@ -10,7 +9,6 @@ use Illuminate\Http\Request;
 class PaypalPaymentController extends Controller
 {
     private $paymentGatewayService;
-
     private $subscriptionService;
 
     public function __construct(PaymentGatewayService $paymentGatewayService, SubscriptionService $subscriptionService)
@@ -21,85 +19,41 @@ class PaypalPaymentController extends Controller
 
     public function createOneTimePayment(Request $request)
     {
-        $validated = $request->validate([
-            'paymentMethodId' => 'required|string',
-            'amount' => 'required|numeric|min:0',
-        ]);
+        $paymentMethodId = $request->input('paymentMethodId');
+        $amount = $request->input('amount');
 
-        $result = $this->paymentGatewayService->processPayment('paypal', (float) $validated['amount'], [
-            'payment_id' => $validated['paymentMethodId'],
-        ]);
+        $result = $this->paymentGatewayService->processPaypalPayment($paymentMethodId, $amount);
 
         return response()->json($result);
     }
 
     public function createSubscription(Request $request)
     {
-        $validated = $request->validate([
-            'paymentMethodId' => 'required|string',
-            'planId' => 'required|string',
-        ]);
-
+        $paymentMethodId = $request->input('paymentMethodId');
+        $planId = $request->input('planId');
         $userDetails = $request->only(['email', 'address']);
 
-        $result = $this->subscriptionService->createSubscription(
-            $validated['paymentMethodId'],
-            $validated['planId'],
-            $userDetails,
-        );
-
-        // Persist the subscription owned by the caller so we can sync its status from
-        // webhooks later. Only on success — a failed create has no PayPal id to track.
-        if (($result['success'] ?? false) && ! empty($result['subscription_id'])) {
-            PaypalSubscription::create([
-                'user_id' => $request->user()->id,
-                'paypal_subscription_id' => $result['subscription_id'],
-                'plan_id' => $validated['planId'],
-                'status' => $result['status'] ?? 'APPROVAL_PENDING',
-            ]);
-        }
+        $result = $this->subscriptionService->createSubscription($paymentMethodId, $planId, $userDetails);
 
         return response()->json($result);
     }
 
     public function updateSubscription(Request $request)
     {
-        $validated = $request->validate([
-            'subscriptionId' => 'required|string',
-            'planId' => 'required|string',
-        ]);
+        $subscriptionId = $request->input('subscriptionId');
+        $planId = $request->input('planId');
 
-        $this->ownedSubscriptionOrFail($request, $validated['subscriptionId']);
-
-        $result = $this->subscriptionService->updateSubscription($validated['subscriptionId'], $validated['planId']);
+        $result = $this->subscriptionService->updateSubscription($subscriptionId, $planId);
 
         return response()->json($result);
     }
 
     public function cancelSubscription(Request $request)
     {
-        $validated = $request->validate([
-            'subscriptionId' => 'required|string',
-        ]);
+        $subscriptionId = $request->input('subscriptionId');
 
-        $this->ownedSubscriptionOrFail($request, $validated['subscriptionId']);
-
-        $result = $this->subscriptionService->cancelSubscription($validated['subscriptionId']);
+        $result = $this->subscriptionService->cancelSubscription($subscriptionId);
 
         return response()->json($result);
-    }
-
-    /**
-     * The subscriptionId is caller-supplied and acts directly against PayPal, so without
-     * this an authenticated user could update/cancel anyone's subscription (IDOR). Scope
-     * it to a PaypalSubscription the caller owns; 404 (not 403) so a probe can't tell an
-     * unowned id from a nonexistent one.
-     */
-    private function ownedSubscriptionOrFail(Request $request, string $subscriptionId): PaypalSubscription
-    {
-        return PaypalSubscription::query()
-            ->where('user_id', $request->user()->id)
-            ->where('paypal_subscription_id', $subscriptionId)
-            ->firstOrFail();
     }
 }

@@ -2,32 +2,35 @@
 
 namespace App\Filament\App\Resources\ProductReviews;
 
-use App\Filament\App\Resources\ProductReviews\Pages\CreateProductReview;
-use App\Filament\App\Resources\ProductReviews\Pages\EditProductReview;
-use App\Filament\App\Resources\ProductReviews\Pages\ListProductReviews;
-use App\Models\Customer;
-use App\Models\Product;
-use App\Models\ProductReview;
-use Filament\Actions\BulkActionGroup;
-use Filament\Actions\DeleteBulkAction;
-use Filament\Actions\EditAction;
+use Filament\Schemas\Schema;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
-use Filament\Forms\Components\Toggle;
-use Filament\Resources\Resource;
-use Filament\Schemas\Schema;
-use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Filters\TernaryFilter;
+use Filament\Actions\EditAction;
+use Filament\Actions\BulkActionGroup;
+use Filament\Actions\DeleteBulkAction;
+use App\Filament\App\Resources\ProductReviews\Pages\ListProductReviews;
+use App\Filament\App\Resources\ProductReviews\Pages\CreateProductReview;
+use App\Filament\App\Resources\ProductReviews\Pages\EditProductReview;
+use Filament\Forms;
+use Filament\Tables;
+use App\Models\Product;
+use App\Models\Customer;
 use Filament\Tables\Table;
+use App\Models\ProductReview;
+use Filament\Resources\Resource;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\SoftDeletingScope;
+use App\Filament\App\Resources\ProductReviewResource\Pages;
+use App\Filament\App\Resources\ProductReviewResource\RelationManagers;
 
 class ProductReviewResource extends Resource
 {
     protected static ?string $model = ProductReview::class;
 
-    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-chat-bubble-left-right';
+    protected static string | \BackedEnum | null $navigationIcon = 'heroicon-o-chat-bubble-left-right';
 
-    protected static ?string $modelLabel = 'Review';
+    protected static ?string $modelLabel = "Review";
 
     protected static ?int $navigationSort = 8;
 
@@ -51,13 +54,6 @@ class ProductReviewResource extends Resource
                     ->label('Comments')
                     ->required()
                     ->maxLength(65535),
-
-                // Moderation lives here now (ADR 0008). Without it the panel
-                // lists reviews it cannot publish, and the only way to approve
-                // one is the HTTP endpoint — a queue with no queue.
-                Toggle::make('approved')
-                    ->label('Published')
-                    ->helperText('Unpublished reviews are not shown to shoppers.'),
             ]);
     }
 
@@ -73,14 +69,9 @@ class ProductReviewResource extends Resource
                     ->label('Customer'),
                 TextColumn::make('comments')
                     ->label('Comments'),
-                IconColumn::make('approved')
-                    ->label('Published')
-                    ->boolean(),
             ])
             ->filters([
-                // The moderation queue: what is waiting on somebody.
-                TernaryFilter::make('approved')
-                    ->label('Published'),
+                //
             ])
             ->recordActions([
                 EditAction::make(),

@@ -5,20 +5,25 @@ namespace App\Http\Controllers;
 use App\Models\PaymentMethod;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 
 class PaymentMethodController extends Controller
 {
     public function index()
     {
-        return response()->json(Auth::user()->paymentMethods()->get());
+        return view('payment_methods.index', [
+            'paymentMethods' => PaymentMethod::where('user_id', Auth::id())->get(),
+        ]);
     }
 
     public function addPaymentMethod(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'name' => 'required|string',
-            'details' => 'required|string',
+            'name' => 'required|string|max:255',
+            // Store only a processor-issued reference (for example Stripe pm_*),
+            // never a card number, CVV, or other raw payment credential.
+            'details' => ['required', 'string', 'max:255', 'regex:/^(pm_|tok_|paypal_|vault_)/'],
             'is_default' => 'sometimes|boolean',
         ]);
 
@@ -26,12 +31,7 @@ class PaymentMethodController extends Controller
             return response()->json($validator->errors(), 422);
         }
 
-        // Ownership is derived from the session, never the request body.
-        $paymentMethod = Auth::user()->paymentMethods()->create($validator->validated());
-
-        if ($paymentMethod->is_default) {
-            $this->clearOtherDefaults($paymentMethod);
-        }
+        $paymentMethod = PaymentMethod::create($validator->validated() + ['user_id' => Auth::id()]);
 
         return response()->json($paymentMethod, 201);
     }
@@ -39,8 +39,8 @@ class PaymentMethodController extends Controller
     public function editPaymentMethod(Request $request, $id)
     {
         $validator = Validator::make($request->all(), [
-            'name' => 'sometimes|string',
-            'details' => 'sometimes|string',
+            'name' => 'sometimes|required|string|max:255',
+            'details' => ['sometimes', 'required', 'string', 'max:255', 'regex:/^(pm_|tok_|paypal_|vault_)/'],
             'is_default' => 'sometimes|boolean',
         ]);
 
@@ -48,45 +48,55 @@ class PaymentMethodController extends Controller
             return response()->json($validator->errors(), 422);
         }
 
-        $paymentMethod = Auth::user()->paymentMethods()->findOrFail($id);
-        $paymentMethod->update($validator->validated());
+        $paymentMethod = PaymentMethod::where('user_id', Auth::id())->find($id);
 
-        if ($paymentMethod->is_default) {
-            $this->clearOtherDefaults($paymentMethod);
+        if (! $paymentMethod) {
+            return response()->json(['message' => 'Payment method not found.'], 404);
         }
+
+        $paymentMethod->update($validator->validated());
 
         return response()->json($paymentMethod);
     }
 
     public function viewPaymentMethod($id)
     {
-        return response()->json(Auth::user()->paymentMethods()->findOrFail($id));
+        $paymentMethod = PaymentMethod::where('user_id', Auth::id())->find($id);
+
+        if (! $paymentMethod) {
+            return response()->json(['message' => 'Payment method not found.'], 404);
+        }
+
+        return response()->json($paymentMethod);
     }
 
     public function deletePaymentMethod($id)
     {
-        Auth::user()->paymentMethods()->findOrFail($id)->delete();
+        $paymentMethod = PaymentMethod::where('user_id', Auth::id())->find($id);
+
+        if (! $paymentMethod) {
+            return response()->json(['message' => 'Payment method not found.'], 404);
+        }
+
+        $paymentMethod->delete();
 
         return response()->json(['message' => 'Payment method deleted successfully.']);
     }
 
     public function setDefaultPaymentMethod($id)
     {
-        $paymentMethod = Auth::user()->paymentMethods()->findOrFail($id);
-        $paymentMethod->update(['is_default' => true]);
-        $this->clearOtherDefaults($paymentMethod);
+        $paymentMethod = PaymentMethod::where('user_id', Auth::id())->find($id);
 
-        return response()->json($paymentMethod);
-    }
+        if (! $paymentMethod) {
+            return response()->json(['message' => 'Payment method not found.'], 404);
+        }
 
-    /**
-     * A user has at most one default method — clear the flag on their others.
-     */
-    private function clearOtherDefaults(PaymentMethod $current): void
-    {
-        Auth::user()->paymentMethods()
-            ->whereKeyNot($current->id)
-            ->update(['is_default' => false]);
+        DB::transaction(function () use ($paymentMethod) {
+            PaymentMethod::where('user_id', Auth::id())->update(['is_default' => false]);
+            $paymentMethod->update(['is_default' => true]);
+        });
+
+        return redirect()->route('payment_methods.index')->with('success', 'Default payment method updated.');
     }
 
     public function initiateTransaction(Request $request)

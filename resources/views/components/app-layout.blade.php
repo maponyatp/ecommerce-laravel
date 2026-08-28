@@ -1,28 +1,26 @@
-{{-- The authenticated account shell (profile, teams, API tokens). Like
-     guest-layout, this component was referenced but never existed, so
-     /user/profile, /user/api-tokens and the team pages were all a hard 500.
-
-     There is a grim symmetry worth recording: two-factor auth is enabled in
-     Fortify and its challenge page was crashing, but the only page that can
-     turn 2FA on is this one — which was also crashing. The lockout was
-     unreachable purely because the door to it was broken too.
-
-     Unlike guest-layout this keeps the storefront chrome: account pages are a
-     place you visit while shopping, not a flow you are trying to escape. --}}
 @props(['header' => null])
 
-@extends('layouts.app')
+<!DOCTYPE html>
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <title>{{ config('app.name') }}</title>
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
+    @livewireStyles
+</head>
+<body class="min-h-screen bg-gray-100 text-gray-900">
+    <x-home-navbar />
 
-@section('content')
-    @isset($header)
-        <header class="border-b border-hairline bg-surface">
-            <div class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-                {{ $header }}
-            </div>
+    @if (isset($header))
+        <header class="bg-white shadow">
+            <div class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">{{ $header }}</div>
         </header>
-    @endisset
+    @endif
 
-    <div class="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-        {{ $slot }}
-    </div>
-@endsection
+    <main>{{ $slot }}</main>
+
+    @livewireScripts
+</body>
+</html>

@@ -3,21 +3,16 @@
 namespace App\Http\Controllers;
 
 use App\Models\SiteSetting;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class SiteSettingController extends Controller
 {
-    /** Site settings are store-wide config — staff only. */
-    private function ensureAdmin(): void
-    {
-        abort_unless(auth()->user()?->hasRole(['super_admin', 'admin']), 403);
-    }
-
     public function index()
     {
-        $this->ensureAdmin();
-
         $settings = SiteSetting::all();
 
         return response()->json($settings);
@@ -25,8 +20,6 @@ class SiteSettingController extends Controller
 
     public function edit($id)
     {
-        $this->ensureAdmin();
-
         $setting = SiteSetting::findOrFail($id);
 
         return response()->json($setting);
@@ -34,10 +27,9 @@ class SiteSettingController extends Controller
 
     public function update(Request $request, $id)
     {
-        $this->ensureAdmin();
-
+        $setting = SiteSetting::findOrFail($id);
         $validator = Validator::make($request->all(), [
-            'name' => 'required|string|max:255|unique:site_settings,name,'.$id,
+            'name' => ['required', 'string', 'max:255', Rule::unique('site_settings', 'name')->ignore($setting->id)],
             'value' => 'required|string',
             'description' => 'nullable|string',
         ]);
@@ -46,16 +38,17 @@ class SiteSettingController extends Controller
             return response()->json($validator->errors(), 422);
         }
 
-        $setting = SiteSetting::findOrFail($id);
-        $setting->update($request->all());
+        try {
+            $setting->update($validator->validated());
+        } catch (UniqueConstraintViolationException $exception) {
+            throw ValidationException::withMessages(['name' => 'That setting name is already in use.']);
+        }
 
         return response()->json($setting);
     }
 
     public function store(Request $request)
     {
-        $this->ensureAdmin();
-
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255|unique:site_settings',
             'value' => 'required|string',

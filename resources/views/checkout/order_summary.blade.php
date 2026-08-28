@@ -32,7 +32,7 @@
                                         </svg>
                                     </div>
                                     <div>
-                                        <p class="text-sm font-medium text-gray-900">{{ $item->product->name }}</p>
+                                        <p class="text-sm font-medium text-gray-900">{{ $item->product_name_snapshot ?? $item->product->name }}</p>
                                         <p class="text-xs text-gray-500 mt-0.5">Qty: {{ $item->quantity }}</p>
                                     </div>
                                 </div>

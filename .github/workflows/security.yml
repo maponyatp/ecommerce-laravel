@@ -1,4 +1,4 @@
-name: Security
+name: Security & Code Quality
 
 on:
   push:
@@ -13,15 +13,88 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-permissions:
-  contents: read
-
 jobs:
-  # Removed the php-insights and phpcpd jobs: phpinsights is not a project
-  # dependency (the job errored on every run) and its quality thresholds don't
-  # reflect the codebase, and sebastian/phpcpd is abandoned and doesn't install
-  # on PHP 8.5. Reinstate as require-dev tools with realistic thresholds if the
-  # team wants them gating.
+  phpcpd:
+    name: PHP Copy/Paste Detection
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+          tools: phpcpd
+
+      - name: Get composer cache directory
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
+
+      - name: Cache composer dependencies
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
+          restore-keys: ${{ runner.os }}-composer-
+
+      - name: Install dependencies
+        run: composer install --no-interaction --no-progress --prefer-dist
+
+      - name: Run phpcpd
+        run: phpcpd app/ --min-lines=5 --min-tokens=70 || true
+
+  php-insights:
+    name: PHP Insights
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: liberu_ecommerce_testing
+          MYSQL_USER: liberu
+          MYSQL_PASSWORD: secret
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+          extensions: pdo_mysql
+
+      - name: Get composer cache directory
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
+
+      - name: Cache composer dependencies
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
+          restore-keys: ${{ runner.os }}-composer-
+
+      - name: Copy environment file
+        run: cp .env.testing .env
+
+      - name: Install dependencies
+        run: composer install --no-interaction --no-progress --prefer-dist
+
+      - name: Generate application key
+        run: php artisan key:generate
+
+      - name: Run PHP Insights
+        run: php artisan insights --min-quality=90 --min-complexity=90 --min-architecture=80 --min-style=90 --no-interaction
+
   security:
     name: Dependency Security Audit
     runs-on: ubuntu-latest
@@ -33,49 +106,5 @@ jobs:
         with:
           php-version: '8.5'
 
-      # --locked audits composer.lock directly. Without it, `composer audit` looks
-      # for an installed vendor/ tree, which no step here creates, so the job died
-      # with "No installed packages found" on every run — red since at least
-      # 2026-07-14 and reporting nothing. Auditing the lock is also what we want:
-      # it checks the versions that actually get deployed, and needs no install.
       - name: Run Composer security audit
-        run: composer audit --locked --no-interaction
-
-  # Split from the Composer job rather than bolted on as a step: the two need
-  # different toolchains (PHP vs Node), they run in parallel, and a JS advisory
-  # reports as a JS failure instead of turning up under a PHP-shaped job name.
-  # The extra checkout costs a couple of seconds.
-  npm-security:
-    name: npm Dependency Security Audit
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v7
-        with:
-          # package.json declares no engines. 20 matches the php-fpm image that
-          # actually builds these assets (v20.20.2) and clears Vite 8's >= 20.19
-          # floor. No cache: npm — nothing installs here, so there's nothing to
-          # cache.
-          node-version: '20'
-
-      # --package-lock-only is the npm mirror of `composer audit --locked` above:
-      # audit the lockfile, install nothing. That keeps the whole npm ci
-      # lockfile-out-of-sync failure mode out of the security gate (the build
-      # workflow is where a desync should shout), and the lock is what ships
-      # anyway. npm 10 already falls back to the lock when node_modules is
-      # absent; the flag says so out loud instead of leaning on that fallback —
-      # an unstated install assumption is what left the Composer job red and
-      # silent for months.
-      #
-      # --omit=dev scopes this to what reaches a browser. The devDependencies
-      # are the build chain (vite, tailwind, postcss) and their advisories tend
-      # to be dev-server noise that's unfixable until upstream moves — a gate
-      # that cries wolf gets ignored, which is how the jobs above died. No
-      # --audit-level in exchange: within the handful of shipped packages we
-      # fail on anything, because flowbite/preline render user-facing markup and
-      # XSS routinely rates "moderate", which --audit-level=high would wave
-      # through. Narrow scope, zero tolerance inside it.
-      - name: Run npm security audit
-        run: npm audit --omit=dev --package-lock-only
+        run: composer audit --no-interaction

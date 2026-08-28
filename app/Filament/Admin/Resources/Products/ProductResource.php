@@ -2,11 +2,15 @@
 
 namespace App\Filament\Admin\Resources\Products;
 
+use App\Filament\Admin\Pages\Inventory;
+use App\Filament\Admin\Pages\ProductVariantDrafts;
 use App\Filament\Admin\Resources\Products\Pages\CreateProduct;
 use App\Filament\Admin\Resources\Products\Pages\EditProduct;
 use App\Filament\Admin\Resources\Products\Pages\ListProducts;
 use App\Models\Product;
 use App\Models\ProductCategory;
+use App\Support\InventoryWorkspace;
+use App\Support\StoreMoney;
 use Filament\Actions\Action;
 use Filament\Actions\BulkAction;
 use Filament\Actions\DeleteBulkAction;
@@ -17,7 +21,6 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
-use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
@@ -27,8 +30,8 @@ use Filament\Tables;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
-use League\Csv\Writer;
 
 class ProductResource extends Resource
 {
@@ -80,6 +83,7 @@ class ProductResource extends Resource
                     ->columns(2)
                     ->schema([
                         Select::make('pricing_type')
+                            ->disabled(fn (?Product $record) => $record?->has_variants ?? false)
                             ->options([
                                 'fixed' => 'Fixed Price',
                                 'free' => 'Free',
@@ -88,17 +92,19 @@ class ProductResource extends Resource
                             ->default('fixed')
                             ->live(),
                         TextInput::make('price')
+                            ->disabled(fn (?Product $record) => $record?->has_variants ?? false)
+                            ->helperText(fn (?Product $record) => $record?->has_variants ? 'Prices are managed in Catalogue → Product variants.' : null)
                             ->required()
                             ->numeric()
-                            ->prefix('$')
+                            ->prefix(StoreMoney::currency())
                             ->visible(fn (Get $get) => $get('pricing_type') === 'fixed'),
                         TextInput::make('suggested_price')
                             ->numeric()
-                            ->prefix('$')
+                            ->prefix(StoreMoney::currency())
                             ->visible(fn (Get $get) => $get('pricing_type') === 'donation'),
                         TextInput::make('minimum_price')
                             ->numeric()
-                            ->prefix('$')
+                            ->prefix(StoreMoney::currency())
                             ->default(0)
                             ->visible(fn (Get $get) => $get('pricing_type') === 'donation'),
                     ]),
@@ -108,20 +114,16 @@ class ProductResource extends Resource
                     ->columns(2)
                     ->schema([
                         TextInput::make('inventory_count')
-                            ->required()
-                            ->numeric()
-                            ->minValue(0),
+                            ->label('Initial on-hand stock')
+                            ->disabled(fn (?Product $record) => $record !== null)
+                            ->helperText('For existing products use Catalogue → Inventory. Product edits never change live stock.')
+                            ->required()->default(0)
+                            ->integer()->minValue(0)->maxValue(2147483647),
                         TextInput::make('low_stock_threshold')
                             ->required()
                             ->numeric()
                             ->minValue(0)
                             ->label('Low Stock Threshold'),
-                        TextInput::make('weight')
-                            ->numeric()
-                            ->minValue(0)
-                            ->default(0)
-                            ->suffix('kg')
-                            ->helperText('Used by weight-based shipping methods.'),
                     ]),
 
                 Section::make('Downloadable Product')
@@ -130,6 +132,7 @@ class ProductResource extends Resource
                     ->collapsible()
                     ->schema([
                         Toggle::make('is_downloadable')
+                            ->disabled(fn (?Product $record) => $record?->has_variants ?? false)
                             ->label('Is Downloadable Product')
                             ->live()
                             ->columnSpanFull(),
@@ -140,12 +143,16 @@ class ProductResource extends Resource
                             ->visibility('private')
                             ->acceptedFileTypes(['application/pdf', 'application/zip'])
                             ->maxSize(50 * 1024)
+                            ->required(fn (Get $get) => (bool) $get('is_downloadable'))
+                            ->helperText('Private PDF or ZIP. Customers receive a protected link after verified payment, including free checkout.')
                             ->visible(fn (Get $get) => $get('is_downloadable'))
                             ->columnSpanFull(),
                         TextInput::make('download_limit')
-                            ->label('Download Limit')
-                            ->numeric()
+                            ->label('Downloads per order item')
+                            ->integer()
                             ->minValue(1)
+                            ->maxValue(10000)
+                            ->helperText('Leave blank for unlimited downloads during the access period. Changes apply to newly issued access.')
                             ->visible(fn (Get $get) => $get('is_downloadable')),
                         DateTimePicker::make('expiration_time')
                             ->label('Download Expiration')
@@ -159,9 +166,9 @@ class ProductResource extends Resource
         return $table
             ->columns([
                 TextColumn::make('name')->searchable()->sortable(),
-                TextColumn::make('price')->money('usd')->sortable(),
+                TextColumn::make('price')->state(fn (Product $record) => $record->store_price_label)->sortable(query: fn ($query, string $direction) => $query->orderByStorePrice($direction === 'desc')),
                 TextColumn::make('category.name')->searchable()->sortable(),
-                TextColumn::make('inventory_count')->sortable(),
+                TextColumn::make('inventory_count')->state(fn (Product $record) => $record->has_variants ? 'Per option' : $record->inventory_count),
                 // Tables\Columns\TagsColumn::make('tags.name'),
             ])
             // ->filters([
@@ -170,54 +177,11 @@ class ProductResource extends Resource
             // ])
             ->recordActions([
                 EditAction::make(),
-                Action::make('addStock')
-                    ->label('Add Stock')
-                    ->icon('heroicon-o-plus-circle')
-                    ->schema([
-                        TextInput::make('quantity')
-                            ->label('Quantity to Add')
-                            ->required()
-                            ->integer()
-                            ->minValue(1),
-                        TextInput::make('reason')
-                            ->label('Reason')
-                            ->required()
-                            ->maxLength(255)
-                            ->default('purchase'),
-                    ])
-                    ->action(function (Product $record, array $data): void {
-                        $record->adjustInventory((int) $data['quantity'], $data['reason']);
-                    }),
-                Action::make('adjustInventory')
-                    ->label('Adjust Inventory')
-                    ->icon('heroicon-o-adjustments-horizontal')
-                    ->action(function (Product $record, array $data): void {
-                        // Atomic guarded adjust — see Product::adjustInventory. Returns
-                        // false when a decrease would take the count below zero.
-                        if (! $record->adjustInventory((int) $data['adjustment'], $data['reason'])) {
-                            Notification::make()
-                                ->title('Inventory cannot go below zero.')
-                                ->danger()
-                                ->send();
-
-                            return;
-                        }
-
-                        Notification::make()
-                            ->title('Inventory adjusted.')
-                            ->success()
-                            ->send();
-                    })
-                    ->schema([
-                        TextInput::make('adjustment')
-                            ->label('Quantity Adjustment')
-                            ->required()
-                            ->integer()
-                            ->helperText('Use a positive value to increase stock and a negative value to decrease stock.'),
-                        TextInput::make('reason')
-                            ->label('Reason for Adjustment')
-                            ->required(),
-                    ]),
+                Action::make('variants')->label('Manage options')->icon('heroicon-o-squares-plus')
+                    ->url(fn (Product $record) => ProductVariantDrafts::getUrl(['product' => $record->id])),
+                Action::make('inventory')->label('Manage stock')->icon('heroicon-o-cube')
+                    ->visible(fn () => Inventory::canAccess())
+                    ->url(fn (Product $record) => Inventory::getUrl(['product' => $record->id])),
             ])
             ->toolbarActions([
                 DeleteBulkAction::make(),
@@ -246,26 +210,11 @@ class ProductResource extends Resource
 
     protected static function export(Collection $records)
     {
-        $csv = Writer::createFromString('');
-
-        $csv->insertOne(['Name', 'SKU', 'Category', 'Price', 'Inventory Count', 'Low Stock Threshold', 'Status']);
-
+        abort_unless(Inventory::canAccess(), 403);
         foreach ($records as $record) {
-            $csv->insertOne([
-                $record->name,
-                $record->sku,
-                $record->category->name,
-                $record->price,
-                $record->inventory_count,
-                $record->low_stock_threshold,
-                $record->inventory_count > $record->low_stock_threshold ? 'In Stock' : ($record->inventory_count > 0 ? 'Low Stock' : 'Out of Stock'),
-            ]);
+            Gate::authorize('view', $record);
         }
 
-        $filename = 'inventory_report_'.date('Y-m-d').'.csv';
-        $path = storage_path('app/public/'.$filename);
-        file_put_contents($path, $csv->getContent());
-
-        return response()->download($path)->deleteFileAfterSend();
+        return app(InventoryWorkspace::class)->export(app(InventoryWorkspace::class)->query()->whereIn('product_id', $records->pluck('id')->all()));
     }
 }

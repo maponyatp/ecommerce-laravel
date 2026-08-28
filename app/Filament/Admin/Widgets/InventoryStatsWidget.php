@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Widgets;
 
 use App\Services\AnalyticsService;
+use App\Support\StoreMoney;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 
@@ -16,8 +17,8 @@ class InventoryStatsWidget extends BaseWidget
         $insights = $analyticsService->getInventoryInsights();
 
         return [
-            Stat::make('Inventory Value', '$'.number_format($insights['inventory_value'], 2))
-                ->description('Total value of current inventory')
+            Stat::make('Inventory retail value', StoreMoney::format($insights['inventory_value']))
+                ->description('At catalogue prices, not cost of goods')
                 ->descriptionIcon('heroicon-m-currency-dollar')
                 ->color('success'),
 

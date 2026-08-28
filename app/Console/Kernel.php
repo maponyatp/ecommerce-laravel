@@ -12,12 +12,7 @@ class Kernel extends ConsoleKernel
      */
     protected function schedule(Schedule $schedule): void
     {
-        // Clear out expired shipping quotes daily so the table doesn't grow unbounded.
-        $schedule->command('shipping:prune-quotes')->daily();
-
-        // Meta applies its own review after upload, so local status goes stale
-        // without a read-back.
-        $schedule->command('facebook:reconcile-catalog')->hourly();
+        $schedule->command('commerce:recover-checkouts')->everyMinute()->withoutOverlapping(15);
     }
 
     /**

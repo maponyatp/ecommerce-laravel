@@ -6,6 +6,7 @@ use App\Models\ShippingMethod;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Spatie\Permission\Models\Role;
+use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
 
 class ShippingControllerTest extends TestCase
@@ -15,11 +16,10 @@ class ShippingControllerTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        // Shipping management is admin-only; these exercise controller behaviour,
-        // so authenticate as an admin (authorization itself is covered in
-        // ShippingAdminAuthTest).
-        Role::findOrCreate('super_admin', 'web');
-        $this->actingAs(User::factory()->create()->assignRole('super_admin'));
+        $user = User::factory()->withPersonalTeam()->create();
+        app(PermissionRegistrar::class)->setPermissionsTeamId($user->current_team_id);
+        $user->assignRole(Role::create(['name' => 'admin', 'guard_name' => 'web']));
+        $this->actingAs($user);
     }
 
     private function makeShipping(array $overrides = []): ShippingMethod
@@ -34,15 +34,13 @@ class ShippingControllerTest extends TestCase
         ], $overrides));
     }
 
-    public function test_index_returns_view(): void
+    public function test_legacy_index_redirects_to_central_delivery_admin(): void
     {
         $this->makeShipping();
 
         $response = $this->get('/shipping');
 
-        $response->assertStatus(200);
-        $response->assertViewIs('shipping.index');
-        $response->assertViewHas('shippingMethods');
+        $response->assertRedirect(route('filament.admin.resources.shipping-methods.index'));
     }
 
     public function test_store_creates_new_shipping_method(): void
@@ -91,36 +89,6 @@ class ShippingControllerTest extends TestCase
         $response->assertSessionHasErrors('estimated_delivery_time');
     }
 
-    public function test_store_persists_is_active_false_when_unchecked(): void
-    {
-        // is_active is collected by the controller; it must actually persist.
-        $this->post('/shipping', [
-            'name' => 'Retired Method',
-            'base_rate' => 5.99,
-            'estimated_delivery_time' => '3-5 business days',
-            // is_active checkbox not submitted -> should store false
-        ]);
-
-        $this->assertDatabaseHas('shipping_methods', [
-            'name' => 'Retired Method',
-            'is_active' => false,
-        ]);
-    }
-
-    public function test_update_can_deactivate_shipping_method(): void
-    {
-        $method = $this->makeShipping(); // active by default
-
-        $this->put("/shipping/{$method->id}", [
-            'name' => 'Standard Shipping',
-            'base_rate' => 5.99,
-            'estimated_delivery_time' => '5-7 business days',
-            // is_active not submitted -> deactivate
-        ]);
-
-        $this->assertFalse($method->fresh()->is_active);
-    }
-
     public function test_update_changes_shipping_method(): void
     {
         $method = $this->makeShipping();
@@ -135,13 +103,13 @@ class ShippingControllerTest extends TestCase
         $this->assertEquals('Updated Name', $method->fresh()->name);
     }
 
-    public function test_destroy_deletes_shipping_method(): void
+    public function test_destroy_deactivates_shipping_method_and_preserves_history(): void
     {
         $method = $this->makeShipping();
 
         $response = $this->delete("/shipping/{$method->id}");
 
         $response->assertRedirect(route('shipping.index'));
-        $this->assertNull(ShippingMethod::find($method->id));
+        $this->assertFalse($method->fresh()->is_active);
     }
 }

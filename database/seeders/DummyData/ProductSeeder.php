@@ -4,84 +4,94 @@ namespace Database\Seeders\DummyData;
 
 use App\Models\Product;
 use App\Models\ProductCategory;
+use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
 class ProductSeeder extends Seeder
 {
     /**
-     * Stock at or below this shows the "Low Stock" badge; above it, plain
-     * in-stock. Zero would make the badge unreachable.
+     * Run the database seeds.
      */
-    private const LOW_STOCK_THRESHOLD = 5;
-
-    /**
-     * The demo catalogue, keyed by category slug.
-     *
-     * Columns: name, price, short description, inventory count, featured.
-     *
-     * The storefront renders three distinct stock states (in stock / low stock
-     * / sold out — see components/product-card.blade.php), so the demo data
-     * deliberately covers all three: the large majority in stock with varied
-     * counts, two hot items sold out, and two running low. A catalogue where
-     * everything has 50 in stock never shows two thirds of the UI.
-     */
-    private const CATALOGUE = [
-        'electronics' => [
-            ['Smartphone', 699.99, 'Latest model smartphone with 5G.', 42, true],
-            ['Laptop', 999.99, 'Lightweight laptop for everyday use.', 18, true],
-            ['Bluetooth Speaker', 49.99, 'Portable speaker with excellent sound.', 64, false],
-        ],
-        'clothing' => [
-            ['T-Shirt', 19.99, 'Cotton T-shirt available in various colors.', 120, false],
-            ['Jeans', 39.99, 'Slim-fit denim jeans.', 37, false],
-            ['Jacket', 79.99, 'Water-resistant windbreaker.', 3, false],
-        ],
-        'books' => [
-            ['Science Fiction Novel', 12.99, 'Best-selling sci-fi adventure.', 85, false],
-            ['Cookbook', 29.99, 'Recipes for healthy eating.', 24, false],
-            ["Children's Storybook", 9.99, 'A fun and educational children’s book.', 56, false],
-        ],
-        'home' => [
-            ['Blender', 49.99, 'High-powered blender for smoothies.', 31, false],
-            ['Non-stick Pan', 29.99, 'Durable non-stick frying pan.', 48, false],
-            ['Vacuum Cleaner', 99.99, 'Compact vacuum cleaner for small spaces.', 12, false],
-        ],
-        'sports' => [
-            ['Yoga Mat', 19.99, 'Eco-friendly non-slip yoga mat.', 73, true],
-            ['Dumbbells Set', 49.99, 'Adjustable dumbbell set for home workouts.', 15, false],
-            ['Tennis Racket', 79.99, 'Professional tennis racket.', 0, false],
-        ],
-        'beauty' => [
-            ['Moisturizer Cream', 24.99, 'Hydrating facial moisturizer.', 66, false],
-            ['Shampoo', 14.99, 'Sulfate-free shampoo for healthy hair.', 94, false],
-            ['Electric Toothbrush', 39.99, 'Rechargeable electric toothbrush.', 2, false],
-        ],
-        'toys' => [
-            ['Building Blocks Set', 29.99, 'Creative building blocks for kids.', 40, false],
-            ['Remote Control Car', 49.99, 'High-speed remote control car.', 0, false],
-            ['Board Game', 19.99, 'Fun family board game.', 27, true],
-        ],
-    ];
-
     public function run(): void
     {
-        foreach (self::CATALOGUE as $slug => $products) {
-            // Look categories up by slug rather than hardcoding IDs. firstOrFail
-            // so a missing category is a clear error, not products with a null
-            // category_id.
-            $categoryId = ProductCategory::where('slug', $slug)->firstOrFail()->id;
+         // Fetch categories by slug to avoid hardcoding IDs
+         $roses = ProductCategory::where('slug', 'roses')->first();
+         $lilies = ProductCategory::where('slug', 'lilies')->first();
+         $tulips = ProductCategory::where('slug', 'tulips')->first();
+         $orchids = ProductCategory::where('slug', 'orchids')->first();
+         $springBlooms = ProductCategory::where('slug', 'spring-blooms')->first();
+         $sunflowers = ProductCategory::where('slug', 'sunflowers')->first();
 
-            foreach ($products as [$name, $price, $shortDescription, $stock, $isFeatured]) {
-                Product::factory()->create([
-                    'name' => $name,
-                    'category_id' => $categoryId,
-                    'price' => $price,
-                    'short_description' => $shortDescription,
-                    'inventory_count' => $stock,
-                    'low_stock_threshold' => self::LOW_STOCK_THRESHOLD,
-                    'is_featured' => $isFeatured,
-                ]);
-            }
-        }
+         // Products for Roses
+         Product::create([
+             'name' => 'Red Romance Bouquet', 
+             'slug' => 'red-romance-bouquet',
+             'category_id' => $roses->id, 
+             'price' => 49.99, 
+             'short_description' => 'A gorgeous luxury bouquet of deep red roses wrapped in premium light pink paper.',
+             'featured_image' => 'images/flowers/bouquet_red_roses.png',
+             'inventory_count' => 15,
+             'is_featured' => true,
+         ]);
+
+         // Products for Lilies
+         Product::create([
+             'name' => 'Pure Elegance Lilies', 
+             'slug' => 'pure-elegance-lilies',
+             'category_id' => $lilies->id, 
+             'price' => 54.99, 
+             'short_description' => 'A fresh and elegant bouquet of white lilies with rich green foliage, arranged in a glass vase.',
+             'featured_image' => 'images/flowers/bouquet_white_lilies.png',
+             'inventory_count' => 10,
+             'is_featured' => true,
+         ]);
+
+         // Products for Tulips
+         Product::create([
+             'name' => 'Spring Cheer Tulips', 
+             'slug' => 'spring-cheer-tulips',
+             'category_id' => $tulips->id, 
+             'price' => 39.99, 
+             'short_description' => 'A vibrant spring bouquet of mixed-color tulips in rustic craft paper wrapping.',
+             'featured_image' => 'images/flowers/bouquet_mixed_tulips.png',
+             'inventory_count' => 20,
+             'is_featured' => true,
+         ]);
+
+         // Products for Orchids
+         Product::create([
+             'name' => 'Exotic Purple Orchid', 
+             'slug' => 'exotic-purple-orchid',
+             'category_id' => $orchids->id, 
+             'price' => 45.00, 
+             'short_description' => 'An elegant purple moth orchid plant in full bloom, potted in a minimalist ceramic container.',
+             'featured_image' => 'images/flowers/orchid_plant.png',
+             'inventory_count' => 8,
+             'is_featured' => true,
+         ]);
+
+         // Products for Spring Blooms
+         Product::create([
+             'name' => 'Pastel Garden Spring Bloom', 
+             'slug' => 'pastel-garden-spring-bloom',
+             'category_id' => $springBlooms->id, 
+             'price' => 59.99, 
+             'short_description' => 'A delicate pastel-themed spring flower arrangement with ranunculus, peonies, and eucalyptus leaves.',
+             'featured_image' => 'images/flowers/bouquet_spring_bloom.png',
+             'inventory_count' => 12,
+             'is_featured' => true,
+         ]);
+
+         // Products for Sunflowers
+         Product::create([
+             'name' => 'Vibrant Sunflowers Bouquet', 
+             'slug' => 'vibrant-sunflowers-bouquet',
+             'category_id' => $sunflowers->id, 
+             'price' => 34.99, 
+             'short_description' => 'A bright bouquet of fresh yellow sunflowers tied with a simple twine ribbon.',
+             'featured_image' => 'images/flowers/bouquet_sunflowers.png',
+             'inventory_count' => 25,
+             'is_featured' => true,
+         ]);
     }
 }

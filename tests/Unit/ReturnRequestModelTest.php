@@ -7,6 +7,7 @@ use App\Models\Order;
 use App\Models\ReturnRequest;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Tests\TestCase;
 
 class ReturnRequestModelTest extends TestCase
@@ -36,6 +37,7 @@ class ReturnRequestModelTest extends TestCase
             'status' => 'delivered',
             'shipping_status' => 'delivered',
         ]);
+
         return [$user, $order];
     }
 
@@ -58,29 +60,32 @@ class ReturnRequestModelTest extends TestCase
         $this->assertStringStartsWith('RMA-', $return->rma_number);
     }
 
-    public function test_approve_sets_status_to_approved(): void
+    public function test_legacy_approve_cannot_bypass_authorization_and_audit(): void
     {
         [$user, $order] = $this->makeOrderAndUser();
         $return = $this->makeReturn($user, $order);
 
-        $return->approve($user->id);
-
-        $fresh = $return->fresh();
-        $this->assertEquals('approved', $fresh->status);
-        $this->assertEquals($user->id, $fresh->approved_by);
-        $this->assertNotNull($fresh->approved_at);
+        try {
+            $return->approve($user->id);
+            $this->fail('Use the guarded service.');
+        } catch (\LogicException) {
+            $this->assertSame('pending', $return->fresh()->status);
+            $this->assertNull($return->fresh()->approved_at);
+        }
     }
 
-    public function test_mark_as_received_sets_status(): void
+    public function test_legacy_receipt_cannot_bypass_quantity_and_condition_checks(): void
     {
         [$user, $order] = $this->makeOrderAndUser();
         $return = $this->makeReturn($user, $order, ['status' => 'approved']);
 
-        $return->markAsReceived();
-
-        $fresh = $return->fresh();
-        $this->assertEquals('received', $fresh->status);
-        $this->assertNotNull($fresh->received_at);
+        try {
+            $return->markAsReceived();
+            $this->fail('Use the guarded service.');
+        } catch (\LogicException) {
+            $this->assertSame('approved', $return->fresh()->status);
+            $this->assertNull($return->fresh()->received_at);
+        }
     }
 
     public function test_belongs_to_order(): void
@@ -111,7 +116,7 @@ class ReturnRequestModelTest extends TestCase
         $return->save();
 
         $fresh = $return->fresh();
-        $this->assertInstanceOf(\Illuminate\Support\Carbon::class, $fresh->approved_at);
-        $this->assertInstanceOf(\Illuminate\Support\Carbon::class, $fresh->received_at);
+        $this->assertInstanceOf(Carbon::class, $fresh->approved_at);
+        $this->assertInstanceOf(Carbon::class, $fresh->received_at);
     }
 }

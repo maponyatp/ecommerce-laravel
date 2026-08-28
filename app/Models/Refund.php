@@ -2,13 +2,10 @@
 
 namespace App\Models;
 
-use App\Notifications\OrderRefundedNotification;
-use App\Services\PaymentGatewayService;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Support\Facades\Notification;
 
 class Refund extends Model
 {
@@ -28,6 +25,9 @@ class Refund extends Model
     ];
 
     protected $casts = [
+        'version' => 'integer',
+        'tax_amount' => 'decimal:2',
+        'external_completed_at' => 'datetime',
         'amount' => 'decimal:2',
         'processed_at' => 'datetime',
         'restock_items' => 'boolean',
@@ -48,6 +48,37 @@ class Refund extends Model
         return $this->belongsTo(User::class, 'processed_by');
     }
 
+    public function creditNote()
+    {
+        return $this->hasOne(CreditNote::class);
+    }
+
+    public function changes()
+    {
+        return $this->hasMany(RefundChange::class);
+    }
+
+    public function paymentTransaction()
+    {
+        return $this->belongsTo(PaymentTransaction::class);
+    }
+
+    protected static function booted(): void
+    {
+        static::updating(function (self $refund): void {
+            if ($refund->getRawOriginal('version') !== null
+                && (in_array($refund->getRawOriginal('status'), ['completed', 'cancelled'], true)
+                    || $refund->isDirty(['order_id', 'invoice_id', 'payment_transaction_id', 'request_key', 'request_hash', 'amount', 'tax_amount', 'currency', 'reason', 'refund_method', 'requested_by', 'restock_items']))) {
+                throw new \LogicException('Recorded refund details cannot be rewritten.');
+            }
+        });
+        static::deleting(function (self $refund): void {
+            if ($refund->version !== null) {
+                throw new \LogicException('Refund records cannot be deleted.');
+            }
+        });
+    }
+
     /**
      * Process the refund
      */
@@ -57,71 +88,6 @@ class Refund extends Model
             return false;
         }
 
-        $order = $this->order;
-
-        // Void the payment with the gateway FIRST. If it has a charge to refund and
-        // the gateway declines, nothing changes — no restock, no state move.
-        $result = [];
-        if ($order->transaction_id) {
-            $result = app(PaymentGatewayService::class)->refundPayment(
-                $order->payment_method,
-                $order->transaction_id,
-                (float) $this->amount,
-            );
-
-            if (! ($result['success'] ?? false)) {
-                return false;
-            }
-        }
-
-        $this->update([
-            'status' => 'processed',
-            'processed_by' => $userId,
-            'processed_at' => now(),
-            'transaction_id' => $result['refund_id'] ?? $this->transaction_id,
-        ]);
-
-        // Restock refunded items if requested.
-        if ($this->restock_items) {
-            foreach ($this->items as $item) {
-                if ($item->restock && $item->orderItem && $item->orderItem->product) {
-                    $item->orderItem->product->increment('inventory_count', $item->quantity);
-                }
-            }
-        }
-
-        // Update refund totals + move the order through the state machine.
-        $order->increment('refund_total', $this->amount);
-        $order->refresh();
-
-        $fully = (float) $order->refund_total >= (float) $order->total_amount;
-        $order->update([
-            'partially_refunded' => ! $fully,
-            'fully_refunded' => $fully,
-        ]);
-
-        $target = $fully ? Order::STATUS_REFUNDED : Order::STATUS_PARTIALLY_REFUNDED;
-        if ($order->status !== $target && in_array($target, Order::TRANSITIONS[$order->status] ?? [], true)) {
-            $order->transitionTo($target, $userId, 'Refund processed');
-        }
-
-        $this->notifyCustomer($order);
-
-        return true;
-    }
-
-    /**
-     * Tell the customer the refund went through. Logged-in customers get the
-     * mail + database (bell) notification; guests get an on-demand email.
-     */
-    private function notifyCustomer(Order $order): void
-    {
-        $notification = new OrderRefundedNotification($order, (float) $this->amount);
-
-        if ($order->user_id && $user = User::find($order->user_id)) {
-            $user->notify($notification);
-        } elseif ($order->customer_email) {
-            Notification::route('mail', $order->customer_email)->notify($notification);
-        }
+        throw new \LogicException('Refund processing is disabled until a gateway-confirmed refund workflow is configured. No money, stock or order status has been changed.');
     }
 }

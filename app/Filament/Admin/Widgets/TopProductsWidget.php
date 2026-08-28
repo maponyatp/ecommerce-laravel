@@ -4,6 +4,7 @@ namespace App\Filament\Admin\Widgets;
 
 use App\Models\OrderItem;
 use App\Models\Product;
+use App\Support\StoreMoney;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget as BaseWidget;
@@ -12,21 +13,22 @@ use Illuminate\Support\Facades\DB;
 class TopProductsWidget extends BaseWidget
 {
     protected static ?int $sort = 3;
-    protected int | string | array $columnSpan = 'full';
+
+    protected int|string|array $columnSpan = 'full';
 
     public function table(Table $table): Table
     {
         return $table
             ->heading('Top 10 Products')
             ->query(
-                fn() =>
-                Product::query()
+                fn () => Product::query()
                     ->fromSub(
                         OrderItem::query()
                             ->join('orders', 'order_items.order_id', '=', 'orders.id')
                             ->join('products', 'order_items.product_id', '=', 'products.id')
                             ->whereBetween('orders.order_date', [now()->subDays(30), now()])
                             ->where('orders.payment_status', 'paid')
+                            ->where('orders.currency', StoreMoney::currency())
                             ->select(
                                 'products.id',
                                 'products.name',
@@ -41,7 +43,6 @@ class TopProductsWidget extends BaseWidget
                     ->limit(10)
             )
 
-
             ->columns([
                 Tables\Columns\TextColumn::make('name')
                     ->label('Product Name')
@@ -52,8 +53,8 @@ class TopProductsWidget extends BaseWidget
                     ->numeric()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('total_revenue')
-                    ->label('Revenue')
-                    ->money('USD')
+                    ->label('Item sales before order discounts')
+                    ->formatStateUsing(fn ($state) => StoreMoney::format($state))
                     ->sortable(),
             ])
             ->paginated(false);

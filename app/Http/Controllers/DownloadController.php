@@ -2,112 +2,71 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\DownloadableProduct;
 use App\Models\Order;
 use App\Models\OrderItem;
+use App\Models\Product;
+use App\Services\DigitalFulfillmentService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
 class DownloadController extends Controller
 {
-    public function generateSecureLink(Request $request, $product)
+    public function generateSecureLink(Request $request, string $category, string $product)
     {
-        $downloadableProduct = DownloadableProduct::where('product_id', $product)
-            ->firstOrFail();
+        $product = Product::where('slug', $product)->first()
+            ?? Product::findOrFail(ctype_digit($product) ? $product : 0);
+        abort_unless((string) $product->category_id === $category || $product->category?->slug === $category, 404);
 
-        if (! $downloadableProduct->isDownloadable() || ! $this->authorizeDownload($request->user(), $downloadableProduct)) {
-            abort(403, 'Download limit reached or not authorized.');
+        $orders = Order::accessibleTo($request->user())->where('payment_status', 'paid')
+            ->whereHas('items', fn ($items) => $items->where('product_id', $product->id))->latest()->get();
+        foreach ($orders as $order) {
+            app(DigitalFulfillmentService::class)->issue($order);
+            foreach ($order->items()->where('product_id', $product->id)->get() as $item) {
+                if ($url = $item->downloadUrl()) {
+                    return response()->json([
+                        'url' => $url,
+                        'expires_in' => min(300, (int) now()->diffInSeconds($item->download_expires_at)),
+                        'downloads_remaining' => $item->download_limit === null ? null : $item->download_limit - $item->download_count,
+                    ])->header('Cache-Control', 'private, no-store');
+                }
+            }
         }
-
-        $temporaryUrl = Storage::disk('local')->temporaryUrl(
-            $downloadableProduct->file_url,
-            now()->addMinutes(5)
-        );
-
-        return response()->json([
-            'url' => $temporaryUrl,
-            'expires_in' => 300, // 5 minutes in seconds
-            'downloads_remaining' => $downloadableProduct->download_limit - $downloadableProduct->downloads_count,
-        ]);
+        abort(403, 'No active paid download is available for this account.');
     }
 
-    public function serveFile(Request $request, $product)
+    public function serveFile(Request $request, string $category, string $product)
     {
-        $downloadableProduct = DownloadableProduct::where('product_id', $product)
-            ->firstOrFail();
+        $response = $this->generateSecureLink($request, $category, $product);
 
-        // Free products carry no purchase — serve without per-order limits.
-        if ($downloadableProduct->product->isFree()) {
-            return $this->streamFile($downloadableProduct);
-        }
-
-        // Paid products are gated PER PURCHASE: each buyer's own order line item
-        // carries its download window (30-day expiry) and its own counter, so one
-        // buyer can't exhaust the allowance for everyone (the product-global
-        // download_limit is the per-purchase cap, not a shared pool).
-        $item = $this->resolvePurchasedItem($request->user(), $product, $request->query('token'));
-
-        if (! $item || ! $item->isDownloadValid()) {
-            abort(403, 'This download link is invalid or has expired.');
-        }
-
-        $limit = $downloadableProduct->download_limit;
-        if ($limit !== null && $item->download_count >= $limit) {
-            abort(403, 'Download limit reached for this purchase.');
-        }
-
-        $item->increment('download_count');
-
-        return $this->streamFile($downloadableProduct);
+        return redirect()->to($response->getData()->url);
     }
 
-    /**
-     * The authenticated user's purchased line item for this product, from a paid
-     * order. A token (from the emailed link) pins a specific purchase; otherwise
-     * the most recent one is used.
-     */
-    private function resolvePurchasedItem($user, $productId, ?string $token): ?OrderItem
+    public function download(Request $request, OrderItem $item)
     {
-        if (! $user) {
-            return null;
-        }
+        return DB::transaction(function () use ($request, $item) {
+            // Same lock order as payment finalization: order, then order item.
+            $order = Order::query()->lockForUpdate()->findOrFail($item->order_id);
+            $item = OrderItem::query()->lockForUpdate()->findOrFail($item->id);
+            $item->setRelation('order', $order);
+            $token = $request->query('token');
+            abort_unless(is_string($token) && $item->download_link && hash_equals($item->download_link, $token), 403);
+            abort_unless($item->isDownloadValid(), 403, 'This download has expired, reached its limit, or is no longer authorized.');
+            abort_unless(DigitalFulfillmentService::isPrivateProductPath($item->download_path), 404);
+            $disk = Storage::disk('local');
+            abort_unless($disk->exists($item->download_path), 404, 'The file is unavailable. Please contact the store.');
+            $response = $disk->download($item->download_path, basename($item->download_path), [
+                'Content-Type' => 'application/octet-stream',
+                'Cache-Control' => 'private, no-store',
+                'Referrer-Policy' => 'no-referrer',
+                'X-Content-Type-Options' => 'nosniff',
+            ]);
+            // HEAD probes must not spend a customer's download allowance.
+            if (! $request->isMethod('HEAD')) {
+                $item->increment('download_count');
+            }
 
-        return OrderItem::where('product_id', $productId)
-            ->whereHas('order', function ($query) use ($user) {
-                $query->where('user_id', $user->id)
-                    ->whereIn('status', [Order::STATUS_PAID, Order::STATUS_COMPLETED]);
-            })
-            ->when($token, fn ($query) => $query->where('download_link', $token))
-            ->latest()
-            ->first();
-    }
-
-    private function streamFile(DownloadableProduct $downloadableProduct)
-    {
-        return Storage::disk('local')->download(
-            $downloadableProduct->file_url,
-            null,
-            ['Content-Type' => Storage::disk('local')->mimeType($downloadableProduct->file_url)]
-        );
-    }
-
-    private function authorizeDownload($user, DownloadableProduct $downloadableProduct)
-    {
-        // Allow download for free products without authentication
-        if ($downloadableProduct->product->isFree()) {
-            return true;
-        }
-
-        if (! $user) {
-            return false;
-        }
-
-        // Check if user has purchased the product
-        return $user->orders()
-            ->whereHas('items', function ($query) use ($downloadableProduct) {
-                $query->where('product_id', $downloadableProduct->product_id);
-            })
-            ->whereIn('status', [Order::STATUS_PAID, Order::STATUS_COMPLETED])
-            ->exists();
+            return $response;
+        }, 3);
     }
 }

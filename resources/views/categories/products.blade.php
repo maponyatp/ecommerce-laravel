@@ -45,15 +45,8 @@
                         </a>
                         <p class="text-sm text-gray-500 mb-3 line-clamp-2">{{ $product->short_description ?? $product->description }}</p>
                         <div class="flex items-center justify-between">
-                            <span class="text-2xl font-bold text-gray-900">${{ number_format($product->price, 2) }}</span>
-                            <form action="{{ route('cart.add', $product) }}" method="POST">
-                                @csrf
-                                <button type="submit"
-                                        class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-4 py-2 text-center"
-                                        {{ $product->inventory_count <= 0 ? 'disabled' : '' }}>
-                                    {{ $product->inventory_count <= 0 ? 'Out of Stock' : 'Add to Cart' }}
-                                </button>
-                            </form>
+                            <span class="text-2xl font-bold text-gray-900">{{ $product->store_price_label }}</span>
+                            <x-catalogue-buy-button :product="$product" />
                         </div>
                     </div>
                 </div>

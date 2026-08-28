@@ -47,10 +47,10 @@
                                 @endif
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                ${{ number_format($method->base_rate, 2) }}
+                                {{ \App\Support\StoreMoney::format($method->base_rate) }}
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                ${{ number_format($method->weight_rate, 2) }}/lb
+                                {{ \App\Support\StoreMoney::format($method->weight_rate) }}/lb
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                 {{ $method->max_weight ? number_format($method->max_weight, 2) . ' lb' : 'No limit' }}

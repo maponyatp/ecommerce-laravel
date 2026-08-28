@@ -4,29 +4,22 @@ namespace Tests\Feature\Api;
 
 use App\Models\Product;
 use App\Models\ProductCategory;
-use App\Models\Team;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
 class ProductControllerTest extends TestCase
 {
     use RefreshDatabase;
+    use \Tests\Support\StoreApiStaff;
 
     protected $user;
 
     protected function setUp(): void
     {
         parent::setUp();
-        // Product write endpoints are admin-gated; these CRUD tests act as an admin.
-        Role::findOrCreate('super_admin', 'web');
-        $this->user = User::factory()->create()->assignRole('super_admin');
-        // Products and collections carry team_id with a database default of 1,
-        // and the API writes are now ownership-checked (#939) — so the admin
-        // acting here has to be in team 1 for the rows these tests create to be
-        // theirs to edit.
-        Team::factory()->create(['id' => 1, 'user_id' => $this->user->id]);
+        $this->user = User::factory()->create();
+        $this->grantStoreApiStaff($this->user);
     }
 
     /**
@@ -52,7 +45,7 @@ class ProductControllerTest extends TestCase
                         'featured_image',
                         'created_at',
                         'updated_at',
-                    ],
+                    ]
                 ],
                 'current_page',
                 'per_page',
@@ -159,7 +152,7 @@ class ProductControllerTest extends TestCase
                     'id' => $product->id,
                     'name' => 'Test Product',
                     'price' => '99.99',
-                ],
+                ]
             ]);
     }
 
@@ -181,7 +174,7 @@ class ProductControllerTest extends TestCase
                 'data' => [
                     'id' => $product->id,
                     'name' => 'Test Product Name',
-                ],
+                ]
             ]);
     }
 
@@ -238,7 +231,7 @@ class ProductControllerTest extends TestCase
                 'data' => [
                     'name' => 'New Product',
                     'price' => '149.99',
-                ],
+                ]
             ]);
 
         $this->assertDatabaseHas('products', [
@@ -315,7 +308,7 @@ class ProductControllerTest extends TestCase
                 'data' => [
                     'name' => 'Updated Name',
                     'price' => '200.00',
-                ],
+                ]
             ]);
 
         $this->assertDatabaseHas('products', [
@@ -451,7 +444,7 @@ class ProductControllerTest extends TestCase
     {
         $product1 = Product::factory()->create(['name' => 'Active Product']);
         $product2 = Product::factory()->create(['name' => 'Deleted Product']);
-
+        
         $product2->delete();
 
         $response = $this->actingAs($this->user, 'sanctum')

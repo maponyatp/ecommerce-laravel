@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Traits\IsTenantModel;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -9,7 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class GiftRegistryItem extends Model
 {
-    use HasFactory;
+    use HasFactory, IsTenantModel;
 
     protected $fillable = [
         'registry_id',
@@ -44,7 +45,7 @@ class GiftRegistryItem extends Model
 
     public function purchases(): HasMany
     {
-        return $this->hasMany(GiftRegistryPurchase::class, 'registry_item_id');
+        return $this->hasMany(GiftRegistryPurchase::class);
     }
 
     /**
@@ -68,17 +69,9 @@ class GiftRegistryItem extends Model
      */
     public function markPurchased(int $quantity, int $orderId, ?string $purchaserName = null, ?string $purchaserEmail = null, bool $anonymous = false): GiftRegistryPurchase
     {
-        if ($quantity < 1) {
-            throw new \InvalidArgumentException('Purchase quantity must be at least 1.');
-        }
+        $this->increment('quantity_purchased', $quantity);
 
-        $remaining = $this->getRemainingQuantity();
-        if ($quantity > $remaining) {
-            throw new \InvalidArgumentException("Cannot purchase {$quantity}; only {$remaining} remaining for this item.");
-        }
-
-        // Record the purchase first: a failed insert must not bump the count.
-        $purchase = $this->purchases()->create([
+        return $this->purchases()->create([
             'order_id' => $orderId,
             'quantity' => $quantity,
             'purchaser_name' => $purchaserName,
@@ -86,9 +79,5 @@ class GiftRegistryItem extends Model
             'anonymous' => $anonymous,
             'purchased_at' => now(),
         ]);
-
-        $this->increment('quantity_purchased', $quantity);
-
-        return $purchase;
     }
 }

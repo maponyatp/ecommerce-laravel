@@ -3,16 +3,16 @@
 namespace App\Http\Controllers\Frontend;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\CatalogueBrowseRequest;
 use App\Models\Product;
-use App\Models\ProductTag;
 use App\Models\Tag;
-use Illuminate\Http\Request;
 use Spatie\QueryBuilder\AllowedFilter;
+use Spatie\QueryBuilder\AllowedSort;
 use Spatie\QueryBuilder\QueryBuilder;
 
 class ProductTagController extends Controller
 {
-    public function index()
+    public function index(CatalogueBrowseRequest $request)
     {
         $tags = QueryBuilder::for(Tag::class)
             ->allowedFilters('name')
@@ -22,18 +22,18 @@ class ProductTagController extends Controller
         return view('tags.index', compact('tags'));
     }
 
-    public function show(Request $request, Tag $tag)
+    public function show(CatalogueBrowseRequest $request, Tag $tag)
     {
         $products = QueryBuilder::for(Product::class)
             ->allowedFilters(
                 'name',
-                'price',
+                AllowedFilter::callback('price', fn ($query, $value) => $query->priceMin($value)->priceMax($value)),
                 'created_at',
                 AllowedFilter::scope('price_min'),
                 AllowedFilter::scope('price_max'),
             )
             ->withTag($tag)
-            ->allowedSorts('name', 'price', 'created_at')
+            ->allowedSorts('name', AllowedSort::callback('price', fn ($query, bool $descending) => $query->orderByStorePrice($descending)), 'created_at')
             ->paginate(config('pagination.per_page'))
             ->appends($request->query());
 

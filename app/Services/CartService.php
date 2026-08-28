@@ -2,203 +2,236 @@
 
 namespace App\Services;
 
-use App\Models\CartItem;
+use App\Models\Order;
 use App\Models\Product;
-use App\Models\User;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
+use App\Models\ProductVariant;
+use App\Support\StoreMoney;
 use Illuminate\Support\Facades\Session;
-use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
-/**
- * The cart. One store, one door.
- *
- * There used to be two. A guest's cart lived in the session as a plain array;
- * a signed-in shopper's cart lived in `cart_items`, and this service mirrored
- * one into the other on login and on every write. The API and the GraphQL
- * mutation wrote `cart_items` directly and never saw the session at all.
- *
- * Two stores meant two carts that could disagree, and the web checkout charged
- * from the session copy — the one no other surface could read. A shopper who
- * added on their phone through the API and checked out on the web was charged
- * for a different cart than the one they filled.
- *
- * Now everything writes `cart_items`, and the session holds one thing: an
- * opaque token that says which rows are this visitor's. That is the shape
- * `CONFORMANCE.md` §D3 prescribes — *the session path becomes a guest
- * identifier on the same store.*
- *
- * `contents()` returns the array shape the storefront and checkout already
- * spoke, keyed by product id, so the callers changed where their cart comes
- * from and not what it looks like.
- */
 class CartService
 {
-    /**
-     * The session key holding the guest's claim on their rows.
-     *
-     * Not the session id itself: a session id is a credential, and this value
-     * is written to a table that staff tooling and abandoned-cart jobs read.
-     */
-    private const GUEST_TOKEN = 'cart_token';
-
-    /**
-     * The cart as the storefront reads it — keyed by product id.
-     *
-     * `name`, `is_downloadable` and `weight` come from the product rather than
-     * from the row, because they are the product's facts and a cart that
-     * remembers a stale name is a cart that lies. `price` is the row's, because
-     * that is what the shopper was shown when they added it.
-     *
-     * @return array<int, array{name: ?string, price: float, quantity: int, is_downloadable: bool, weight: float}>
-     */
-    public function contents(): array
+    public function quantity(mixed $value): int
     {
-        $contents = [];
-
-        foreach ($this->query()->with('product')->get() as $item) {
-            $product = $item->product;
-
-            $contents[$item->product_id] = [
-                'name' => $product?->name,
-                'price' => (float) $item->price,
-                'quantity' => (int) $item->quantity,
-                'is_downloadable' => (bool) $product?->is_downloadable,
-                'weight' => (float) ($product?->weight ?? 0),
-            ];
+        if ((! is_int($value) && (! is_string($value) || ! ctype_digit($value)))
+            || (int) $value < 1 || (int) $value > 9999) {
+            throw ValidationException::withMessages(['cart' => 'Quantity must be a whole number from 1 to 9999.']);
         }
 
-        return $contents;
+        return (int) $value;
     }
 
-    public function isEmpty(): bool
+    private function productId(mixed $value): int
     {
-        return ! $this->query()->exists();
-    }
-
-    public function subtotal(): float
-    {
-        return (float) $this->query()->get()->sum(fn (CartItem $item) => (float) $item->price * $item->quantity);
-    }
-
-    public function count(): int
-    {
-        return (int) $this->query()->sum('quantity');
-    }
-
-    public function has(int $productId): bool
-    {
-        return $this->query()->where('product_id', $productId)->exists();
-    }
-
-    /**
-     * Add to the cart, or add to what is already there.
-     *
-     * The price is taken from the product now and kept, which is what the
-     * session cart did: a price change between adding and checking out is not
-     * something to spring on somebody at the payment step.
-     */
-    public function add(Product $product, int $quantity): void
-    {
-        $item = $this->query()->where('product_id', $product->id)->first();
-
-        if ($item !== null) {
-            $item->increment('quantity', $quantity);
-
-            return;
+        if ((! is_int($value) && (! is_string($value) || ! ctype_digit($value)))
+            || filter_var($value, FILTER_VALIDATE_INT) === false || (int) $value < 1) {
+            throw ValidationException::withMessages(['cart' => 'An item has an invalid product reference. Please clear your cart.']);
         }
 
-        CartItem::create($this->owner() + [
-            'product_id' => $product->id,
-            'quantity' => $quantity,
-            'price' => $product->price,
-        ]);
+        return (int) $value;
     }
 
-    public function setQuantity(int $productId, int $quantity): void
+    /** Canonical keys are a product ID or v:product-ID:variant-ID. Never trust session metadata. */
+    public function reference(mixed $key): array
     {
-        $this->query()->where('product_id', $productId)->update(['quantity' => $quantity]);
+        if (is_string($key) && preg_match('/^v:([1-9][0-9]*):([1-9][0-9]*)$/D', $key, $parts)) {
+            return [$this->productId($parts[1]), $this->productId($parts[2])];
+        }
+
+        return [$this->productId($key), null];
     }
 
-    public function remove(int $productId): void
+    private function key(mixed $key): int|string
     {
-        $this->query()->where('product_id', $productId)->delete();
+        [$productId, $variantId] = $this->reference($key);
+
+        return $variantId ? "v:$productId:$variantId" : $productId;
+    }
+
+    private function resolve(mixed $key): array
+    {
+        [$productId, $variantId] = $this->reference($key);
+        $product = Product::find($productId);
+        $variant = $variantId ? ProductVariant::where('product_id', $productId)->find($variantId) : null;
+
+        return [$product, $variant, $variantId];
+    }
+
+    public function current(): array
+    {
+        $cart = Session::get('cart', []);
+        if (! is_array($cart)) {
+            throw ValidationException::withMessages(['cart' => 'Your saved cart is invalid. Please clear your cart and try again.']);
+        }
+
+        return $cart;
+    }
+
+    private function details(Product $product, int $quantity, ?ProductVariant $variant = null): array
+    {
+        if ($variant) {
+            $options = collect($variant->options ?? [])->map(fn ($value, $name) => "$name: $value")->implode(', ');
+
+            return ['name' => $product->name.' — '.$variant->title.($options ? ' ('.$options.')' : ''),
+                'price' => $variant->price, 'quantity' => $quantity, 'is_downloadable' => false,
+                'weight' => (float) ($variant->weight ?? $product->weight ?? 0),
+                'product_variant_id' => $variant->id, 'sku_snapshot' => $variant->sku, 'options_snapshot' => $variant->options];
+        }
+
+        // A fixed allowlist: browser/session metadata never determines prices, shipping or digital delivery.
+        return ['name' => $product->name, 'price' => $product->price, 'quantity' => $quantity,
+            'is_downloadable' => $product->is_downloadable, 'weight' => (float) ($product->weight ?? 0)];
+    }
+
+    private function availabilityError(Product $product, int $quantity, ?ProductVariant $variant = null, ?int $variantId = null): ?string
+    {
+        if ($product->has_variants && ! $variantId) {
+            return 'Choose an option on the product page before adding this product.';
+        }
+        if ($variantId && (! $product->has_variants || ! $variant || ! $variant->active
+            || $variant->currency !== StoreMoney::currency() || $product->is_downloadable
+            || ($product->pricing_type && $product->pricing_type !== 'fixed'))) {
+            return 'This product option is no longer available. Please remove it or choose another option.';
+        }
+        $price = $variant?->price ?? $product->price;
+        if (! is_numeric($price) || ! is_finite((float) $price) || (float) $price < 0) {
+            return 'This product has an unavailable price. Please remove it or contact the store.';
+        }
+        if (app(StockReservationService::class)->available($product, variant: $variant) < $quantity) {
+            return 'Requested quantity exceeds available stock, including active checkout reservations. Reduce the quantity or remove this item.';
+        }
+        if ($product->is_downloadable && ! app(DigitalFulfillmentService::class)->availableSource($product)) {
+            return 'A digital item is currently unavailable for delivery. Please remove it or contact the store.';
+        }
+
+        return null;
+    }
+
+    public function line(mixed $productId, mixed $quantity): array
+    {
+        $quantity = $this->quantity($quantity);
+        [$product, $variant, $variantId] = $this->resolve($productId);
+        if (! $product) {
+            throw ValidationException::withMessages(['cart' => 'This product is no longer available. Please remove it from your cart.']);
+        }
+        if ($error = $this->availabilityError($product, $quantity, $variant, $variantId)) {
+            throw ValidationException::withMessages(['cart' => $error]);
+        }
+
+        return $this->details($product, $quantity, $variant);
+    }
+
+    public function hydrate(array $cart): array
+    {
+        $resolved = [];
+        foreach ($cart as $id => $item) {
+            $resolved[$this->key($id)] = $this->line($id, is_array($item) ? ($item['quantity'] ?? null) : null);
+        }
+
+        return $resolved;
+    }
+
+    public function add(mixed $productId, mixed $quantity = 1, mixed $variantId = null): void
+    {
+        $id = $this->productId($productId);
+        if ($variantId !== null && $variantId !== '') {
+            $id = 'v:'.$id.':'.$this->productId($variantId);
+        }
+        $quantity = $this->quantity($quantity);
+        $cart = $this->current();
+        $existing = array_key_exists($id, $cart) ? $this->quantity(is_array($cart[$id]) ? ($cart[$id]['quantity'] ?? null) : null) : 0;
+        $cart[$id] = $this->line($id, $existing + $quantity);
+        $this->save($cart);
+    }
+
+    public function update(mixed $productId, mixed $quantity): void
+    {
+        $id = $this->key($productId);
+        $cart = $this->current();
+        if (! array_key_exists($id, $cart)) {
+            throw ValidationException::withMessages(['cart' => 'Product not found in cart.']);
+        }
+        $cart[$id] = $this->line($id, $quantity);
+        $this->save($cart);
+    }
+
+    public function remove(mixed $productId): void
+    {
+        $id = $this->key($productId);
+        $cart = $this->current();
+        if (! array_key_exists($id, $cart)) {
+            throw ValidationException::withMessages(['cart' => 'Product not found in cart.']);
+        }
+        unset($cart[$id]);
+        $this->save($cart);
+        if ($cart === []) {
+            Session::forget('coupon');
+        }
+    }
+
+    private function save(array $cart): void
+    {
+        Session::put('cart', $cart);
+        Session::forget('checkout_quote');
+        // Preserve pending-payment references and checkout idempotency keys.
     }
 
     public function clear(): void
     {
-        $this->query()->delete();
+        Session::forget(['cart', 'coupon', 'checkout_quote']);
     }
 
-    /**
-     * Fold the guest's cart into the account they just signed into.
-     *
-     * Quantities are combined rather than replaced — a shopper who added two
-     * of something while signed out and one while signed in wanted three, and
-     * either cart winning outright loses something they chose.
-     *
-     * The token is dropped afterwards, so the next guest on this browser starts
-     * a cart of their own rather than inheriting somebody's.
-     */
-    public function mergeGuestCartIntoAccount(User $user): void
+    public function canResumeCheckout(): bool
     {
-        $token = Session::get(self::GUEST_TOKEN);
-
-        if ($token === null) {
-            return;
+        $key = Session::get('checkout_last_key');
+        $cart = Session::get('cart', []);
+        if (! is_string($key) || $key === '' || ! is_array($cart) || $cart === []
+            || Session::get('checkout_last_cart') !== hash('sha256', serialize($cart))) {
+            return false;
         }
 
-        DB::transaction(function () use ($user, $token) {
-            foreach (CartItem::where('guest_token', $token)->get() as $guestItem) {
-                $existing = CartItem::where('user_id', $user->id)
-                    ->where('product_id', $guestItem->product_id)
-                    ->first();
+        // Match the existing checkout resume gate. This link does not create another order or bypass stock validation.
+        return Order::where('checkout_key', $key)->where(fn ($query) => $query->where('status', 'payment_review')
+            ->orWhere(fn ($held) => $held->where('stock_reservation_status', 'held')->where('stock_reserved_until', '>', now())))->exists();
+    }
 
-                if ($existing !== null) {
-                    $existing->increment('quantity', $guestItem->quantity);
-                    $guestItem->delete();
+    /** Read-only display: retain unavailable rows for removal, never rewrite a pending checkout's cart hash. */
+    public function snapshot(): array
+    {
+        $items = [];
+        $errors = [];
+        try {
+            $cart = $this->current();
+        } catch (ValidationException $exception) {
+            return ['items' => [], 'errors' => $exception->validator->errors()->all()];
+        }
+        foreach ($cart as $id => $item) {
+            try {
+                $id = $this->key($id);
+            } catch (ValidationException $exception) {
+                $errors = array_merge($errors, $exception->validator->errors()->all());
 
-                    continue;
-                }
-
-                $guestItem->forceFill(['user_id' => $user->id, 'guest_token' => null])->save();
+                continue;
             }
-        });
-
-        Session::forget(self::GUEST_TOKEN);
-    }
-
-    private function query(): Builder
-    {
-        return CartItem::query()->where($this->owner());
-    }
-
-    /**
-     * Whose cart this is: the account when there is one, the guest token
-     * otherwise. Exactly one, never both — a row that claimed both would be
-     * reachable by a stranger holding the token after the owner signed in.
-     *
-     * @return array{user_id: int}|array{guest_token: string}
-     */
-    private function owner(): array
-    {
-        $user = Auth::user();
-
-        return $user !== null
-            ? ['user_id' => $user->id]
-            : ['guest_token' => $this->guestToken()];
-    }
-
-    private function guestToken(): string
-    {
-        $token = Session::get(self::GUEST_TOKEN);
-
-        if (! is_string($token) || $token === '') {
-            $token = (string) Str::uuid();
-            Session::put(self::GUEST_TOKEN, $token);
+            [$product, $variant, $variantId] = $this->resolve($id);
+            $quantity = is_array($item) ? ($item['quantity'] ?? null) : null;
+            try {
+                $quantity = $this->quantity($quantity);
+                $error = $product ? $this->availabilityError($product, $quantity, $variant, $variantId) : 'This product is no longer available. Remove it to continue.';
+            } catch (ValidationException $exception) {
+                $quantity = 0;
+                $error = $exception->validator->errors()->first();
+            }
+            $row = $product ? $this->details($product, $quantity, $variant) : [
+                'name' => 'Unavailable product #'.$id, 'price' => null, 'quantity' => $quantity,
+                'is_downloadable' => false, 'weight' => 0,
+            ];
+            if ($error) {
+                $errors[] = $row['name'].': '.$error;
+            }
+            $items[$id] = $row + ['issue' => $error];
         }
 
-        return $token;
+        return ['items' => $items, 'errors' => array_values(array_unique($errors))];
     }
 }

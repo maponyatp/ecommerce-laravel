@@ -2,14 +2,11 @@
 
 namespace App\Providers;
 
-use App\Listeners\LogAuthenticationFailure;
-use App\Listeners\MergeGuestCartOnLogin;
-use Illuminate\Auth\Events\Failed;
-use Illuminate\Auth\Events\Lockout;
-use Illuminate\Auth\Events\Login;
+use App\Listeners\BrandOutgoingMail;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Auth\Listeners\SendEmailVerificationNotification;
 use Illuminate\Foundation\Support\Providers\EventServiceProvider as ServiceProvider;
+use Illuminate\Mail\Events\MessageSending;
 use Illuminate\Support\Facades\Event;
 
 class EventServiceProvider extends ServiceProvider
@@ -20,19 +17,11 @@ class EventServiceProvider extends ServiceProvider
      * @var array<class-string, array<int, class-string>>
      */
     protected $listen = [
+        MessageSending::class => [
+            BrandOutgoingMail::class,
+        ],
         Registered::class => [
             SendEmailVerificationNotification::class,
-        ],
-        Login::class => [
-            MergeGuestCartOnLogin::class,
-        ],
-        // Nothing recorded authentication failures, so credential stuffing against
-        // Fortify's 5/min throttle left no trace at all (OWASP A09).
-        Failed::class => [
-            LogAuthenticationFailure::class.'@handleFailed',
-        ],
-        Lockout::class => [
-            LogAuthenticationFailure::class.'@handleLockout',
         ],
     ];
 

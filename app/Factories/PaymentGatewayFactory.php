@@ -11,12 +11,13 @@ class PaymentGatewayFactory
 {
     public static function create(string $gateway): PaymentGatewayInterface
     {
-        // Resolve through the container so gateways are injectable (tests can bind
-        // a fake) and their own dependencies are wired.
-        return match ($gateway) {
-            'stripe' => app(StripeGateway::class),
-            'paypal' => app(PayPalGateway::class),
-            default => throw new InvalidArgumentException("Unsupported payment gateway: {$gateway}"),
-        };
+        switch ($gateway) {
+            case 'stripe':
+                return new StripeGateway();
+            case 'paypal':
+                return new PayPalGateway();
+            default:
+                throw new InvalidArgumentException("Unsupported payment gateway: {$gateway}");
+        }
     }
 }

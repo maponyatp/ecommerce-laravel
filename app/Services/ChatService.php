@@ -75,7 +75,7 @@ class ChatService
         // Calculate response time
         $analytics = $conversation->analytics;
         if ($analytics && !$analytics->response_time_seconds) {
-            $responseTime = $conversation->created_at->diffInSeconds(now());
+            $responseTime = now()->diffInSeconds($conversation->created_at);
             $analytics->update(['response_time_seconds' => $responseTime]);
         }
 
@@ -103,7 +103,7 @@ class ChatService
         // Update resolution time
         $analytics = $conversation->analytics;
         if ($analytics && $conversation->started_at) {
-            $resolutionTime = $conversation->started_at->diffInSeconds(now());
+            $resolutionTime = now()->diffInSeconds($conversation->started_at);
             $analytics->update(['resolution_time_seconds' => $resolutionTime]);
         }
 

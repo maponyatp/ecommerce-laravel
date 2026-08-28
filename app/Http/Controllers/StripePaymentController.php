@@ -3,11 +3,31 @@
 namespace App\Http\Controllers;
 
 use Exception;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Laravel\Cashier\Exceptions\IncompletePayment;
 
 class StripePaymentController extends Controller
 {
+    public function createOneTimePayment(Request $request)
+    {
+        $request->validate([
+            'amount' => 'required|numeric',
+            'payment_method' => 'required|string',
+        ]);
+
+        $user = $request->user();
+        $amount = $request->input('amount');
+        $paymentMethod = $request->input('payment_method');
+
+        try {
+            $payment = $user->charge($amount * 100, $paymentMethod);
+            return response()->json(['success' => true, 'payment_id' => $payment->id]);
+        } catch (IncompletePayment $exception) {
+            return response()->json(['success' => false, 'error' => $exception->getMessage()], 402);
+        }
+    }
+
     public function createSubscription(Request $request)
     {
         $request->validate([
@@ -19,7 +39,6 @@ class StripePaymentController extends Controller
 
         try {
             $subscription = $user->newSubscription('default', $plan)->create($request->input('payment_method'));
-
             return response()->json(['success' => true, 'subscription_id' => $subscription->stripe_id]);
         } catch (IncompletePayment $exception) {
             return response()->json(['success' => false, 'error' => $exception->getMessage()], 402);
@@ -39,8 +58,7 @@ class StripePaymentController extends Controller
 
         try {
             $subscription = $user->subscription($subscriptionId)->swap($plan);
-
-            return response()->json(['success' => true, 'new_plan' => $subscription->stripe_price]);
+            return response()->json(['success' => true, 'new_plan' => $subscription->stripe_plan]);
         } catch (Exception $exception) {
             return response()->json(['success' => false, 'error' => $exception->getMessage()], 400);
         }
@@ -57,7 +75,6 @@ class StripePaymentController extends Controller
 
         try {
             $user->subscription($subscriptionId)->cancel();
-
             return response()->json(['success' => true, 'message' => 'Subscription cancelled successfully.']);
         } catch (Exception $exception) {
             return response()->json(['success' => false, 'error' => $exception->getMessage()], 400);

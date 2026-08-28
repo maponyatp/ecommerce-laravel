@@ -1,5 +1,7 @@
 <?php
 
+use App\Models\User;
+
 return [
 
     /*
@@ -44,7 +46,7 @@ return [
     ],
 
     'stripe' => [
-        'model' => App\Models\User::class,
+        'model' => User::class,
         'key' => env('STRIPE_KEY'),
         'secret' => env('STRIPE_SECRET'),
         'webhook' => [
@@ -52,9 +54,11 @@ return [
         ],
     ],
 
-    'dropxl' => [
-        'url' => env('DROPXL_API_URL', 'https://api.dropxl.com'),
-        'key' => env('DROPXL_API_KEY', ''),
+    'ikhokha' => [
+        'app_id' => env('IKHOKHA_APP_ID'),
+        'app_secret' => env('IKHOKHA_APP_SECRET'),
+        'mode' => env('IKHOKHA_MODE', 'live'),
+        'endpoint' => env('IKHOKHA_ENDPOINT', 'https://api.ikhokha.com/public-api/v1/api/payment'),
     ],
 
 ];

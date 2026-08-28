@@ -10,7 +10,8 @@ use Filament\Widgets\TableWidget as BaseWidget;
 class RecentOrdersWidget extends BaseWidget
 {
     protected static ?int $sort = 6;
-    protected int | string | array $columnSpan = 'full';
+
+    protected int|string|array $columnSpan = 'full';
 
     public function table(Table $table): Table
     {
@@ -25,8 +26,8 @@ class RecentOrdersWidget extends BaseWidget
                     ->sortable(),
                 Tables\Columns\TextColumn::make('customer.first_name')
                     ->label('Customer')
-                    ->formatStateUsing(fn ($record) => $record->customer 
-                        ? $record->customer->first_name . ' ' . $record->customer->last_name 
+                    ->formatStateUsing(fn ($record) => $record->customer
+                        ? $record->customer->first_name.' '.$record->customer->last_name
                         : 'Guest')
                     ->searchable(),
                 Tables\Columns\TextColumn::make('order_date')
@@ -35,7 +36,7 @@ class RecentOrdersWidget extends BaseWidget
                     ->sortable(),
                 Tables\Columns\TextColumn::make('total_amount')
                     ->label('Total')
-                    ->money('USD')
+                    ->formatStateUsing(fn ($state, Order $record) => $record->formatMoney($state))
                     ->sortable(),
                 Tables\Columns\TextColumn::make('payment_status')
                     ->label('Payment')

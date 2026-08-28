@@ -2,11 +2,10 @@
 
 namespace App\Notifications;
 
+use App\Models\Product;
 use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
-use App\Models\Product;
 
 class LowStockNotification extends Notification
 {
@@ -27,11 +26,11 @@ class LowStockNotification extends Notification
     public function toMail($notifiable)
     {
         return (new MailMessage)
-                    ->subject('Low Stock Alert')
-                    ->line('The product "' . $this->product->name . '" is running low on stock.')
-                    ->line('Current stock: ' . $this->product->inventory_count)
-                    ->line('Low stock threshold: ' . $this->product->low_stock_threshold)
-                    ->action('View Product', url('/admin/products/' . $this->product->id));
+            ->subject('Low Stock Alert')
+            ->line('The product "'.$this->product->name.'" is running low on stock.')
+            ->line('Current stock: '.$this->product->inventory_count)
+            ->line('Low stock threshold: '.$this->product->low_stock_threshold)
+            ->action('View Product', url('/admin/products/'.$this->product->id.'/edit'));
     }
 
     public function toArray($notifiable)

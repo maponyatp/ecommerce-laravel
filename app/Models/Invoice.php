@@ -2,20 +2,19 @@
 
 namespace App\Models;
 
-use App\Traits\IsStoreScoped;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class Invoice extends Model
 {
     use HasFactory;
-    use IsStoreScoped;
 
     protected $table = 'invoices';
 
     protected $fillable = [
         'order_id',
         'customer_id',
+        'invoice_number',
         'invoice_date',
         'total_amount',
         'payment_status',
@@ -23,60 +22,32 @@ class Invoice extends Model
 
     protected $casts = [
         'invoice_date' => 'datetime',
+        'document_snapshot' => 'array',
     ];
 
-    /**
-     * Generate (once) the invoice for a paid order: resolve the customer via the
-     * User<->Customer identity link — or create one from the guest email — and copy
-     * the order's line items onto the invoice. Idempotent per order_id.
-     */
-    public static function generateForOrder(Order $order): self
+    protected static function booted(): void
     {
-        $order->loadMissing('items');
-
-        $invoice = static::firstOrCreate(
-            ['order_id' => $order->id],
-            [
-                'customer_id' => static::resolveCustomerId($order),
-                'invoice_date' => now(),
-                'total_amount' => $order->total_amount,
-                'payment_status' => $order->payment_status ?: 'paid',
-            ]
-        );
-
-        if ($invoice->wasRecentlyCreated) {
-            foreach ($order->items as $item) {
-                $invoice->products()->attach($item->product_id, [
-                    'quantity' => $item->quantity,
-                    'price' => $item->price,
-                ]);
+        static::updating(function (self $invoice): void {
+            if ($invoice->getRawOriginal('document_snapshot') !== null
+                && $invoice->isDirty(['document_snapshot', 'order_id', 'customer_id', 'invoice_number', 'invoice_date', 'total_amount'])) {
+                throw new \LogicException('Issued invoice contents cannot be rewritten. Use a reviewed correction or credit-note workflow.');
             }
-        }
-
-        return $invoice;
-    }
-
-    protected static function resolveCustomerId(Order $order): int
-    {
-        if ($order->user_id) {
-            return $order->user->getOrCreateCustomer()->id;
-        }
-
-        if ($order->customer_id) {
-            return $order->customer_id;
-        }
-
-        // Guest order: a minimal customer from the order email (profile fields nullable).
-        return Customer::create([
-            'first_name' => 'Guest',
-            'last_name' => '',
-            'email' => $order->customer_email,
-        ])->id;
+        });
+        static::deleting(function (self $invoice): void {
+            if ($invoice->document_snapshot !== null) {
+                throw new \LogicException('Issued invoices must be retained.');
+            }
+        });
     }
 
     public function order()
     {
         return $this->belongsTo(Order::class);
+    }
+
+    public function creditNotes()
+    {
+        return $this->hasMany(CreditNote::class);
     }
 
     public function customer()
@@ -87,10 +58,5 @@ class Invoice extends Model
     public function products()
     {
         return $this->belongsToMany(Product::class)->withPivot('quantity', 'price');
-    }
-
-    public function team()
-    {
-        return $this->belongsTo(Team::class);
     }
 }

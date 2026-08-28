@@ -1,5 +1,13 @@
 <div class="shopping-cart">
     <h2 class="mb-4">Shopping Cart</h2>
+    <p class="mb-4 text-sm">Prices and availability are checked against the current catalogue. Items are not reserved until checkout.</p>
+    @if($cartIssues)
+        <div class="alert alert-danger" role="alert">
+            <p>Please resolve these items before checkout:</p>
+            <ul>@foreach($cartIssues as $issue)<li>{{ $issue }}</li>@endforeach</ul>
+            <button type="button" class="btn btn-outline-secondary mt-2" wire:click="clearCart">Clear saved cart</button>
+        </div>
+    @endif
     @if (session()->has('error'))
         <div class="alert alert-danger">
             {{ session('error') }}
@@ -36,7 +44,7 @@
                         </thead>
                         <tbody>
                             @foreach($items as $id => $item)
-                                <tr>
+                                <tr wire:key="cart-line-{{ $id }}">
                                     <td>
                                         <div class="d-flex align-items-center">
                                             @if(isset($item['image']))
@@ -50,15 +58,15 @@
                                             </div>
                                         </div>
                                     </td>
-                                    <td>${{ number_format($item['price'], 2) }}</td>
+                                    <td>{{ $item['issue'] ? 'Review item' : \App\Support\StoreMoney::format($item['price']) }}</td>
                                     <td>
                                         <div class="input-group" style="width: 120px;">
-                                            <button class="btn btn-outline-secondary btn-sm" wire:click="updateQuantity('{{ $id }}', {{ max(1, $item['quantity'] - 1) }})">-</button>
-                                            <input type="number" class="form-control form-control-sm text-center" wire:model.lazy="items.{{ $id }}.quantity" wire:change="updateQuantity('{{ $id }}', $event.target.value)" min="1">
-                                            <button class="btn btn-outline-secondary btn-sm" wire:click="updateQuantity('{{ $id }}', {{ $item['quantity'] + 1 }})">+</button>
+                                            <button type="button" aria-label="Decrease quantity for {{ $item['name'] }}" class="btn btn-outline-secondary btn-sm" wire:click="updateQuantity('{{ $id }}', {{ max(1, $item['quantity'] - 1) }})" wire:loading.attr="disabled">-</button>
+                                            <input type="number" aria-label="Quantity for {{ $item['name'] }}" class="form-control form-control-sm text-center" value="{{ $item['quantity'] }}" wire:change="updateQuantity('{{ $id }}', $event.target.value)" min="1" max="9999" step="1" wire:loading.attr="disabled">
+                                            <button type="button" aria-label="Increase quantity for {{ $item['name'] }}" class="btn btn-outline-secondary btn-sm" wire:click="updateQuantity('{{ $id }}', {{ $item['quantity'] + 1 }})" wire:loading.attr="disabled">+</button>
                                         </div>
                                     </td>
-                                    <td>${{ number_format($item['price'] * $item['quantity'], 2) }}</td>
+                                    <td>{{ $item['issue'] ? 'Review item' : \App\Support\StoreMoney::format($item['price'] * $item['quantity']) }}</td>
                                     <td>
                                         <button class="btn btn-sm btn-danger" wire:click="removeItem('{{ $id }}')">
                                             <i class="fa fa-trash"></i> Remove
@@ -84,7 +92,7 @@
                         <h5 class="card-title">Order Summary</h5>
                         <div class="d-flex justify-content-between mb-2">
                             <span>Subtotal:</span>
-                            <strong>${{ number_format($this->calculateTotal(), 2) }}</strong>
+                            <strong>{{ $canCheckout ? \App\Support\StoreMoney::format($total) : 'Resolve unavailable items' }}</strong>
                         </div>
                         <div class="d-flex justify-content-between mb-3">
                             <span>Shipping:</span>
@@ -92,13 +100,17 @@
                         </div>
                         <hr>
                         <div class="d-flex justify-content-between mb-3">
-                            <span>Total:</span>
-                            <strong>${{ number_format($this->calculateTotal(), 2) }}</strong>
+                            <span>Items total:</span>
+                            <strong>{{ $canCheckout ? \App\Support\StoreMoney::format($total) : 'Resolve unavailable items' }}</strong>
                         </div>
                         <div class="d-grid">
-                            <a href="{{ route('checkout.initiate') }}" class="btn btn-primary">
+                            <p class="mb-3 text-sm">Delivery, discounts and applicable taxes are calculated at checkout.</p>
+                            @if($canResumeCheckout)
+                                <p class="mb-3 text-sm">An existing checkout is linked to this unchanged cart. Review it before starting another payment.</p>
+                                <a href="{{ route('checkout.initiate') }}" class="btn btn-primary">Review existing checkout</a>
+                            @elseif($canCheckout)<a href="{{ route('checkout.initiate') }}" class="btn btn-primary">
                                 Proceed to Checkout
-                            </a>
+                            </a>@else<button type="button" class="btn btn-primary" disabled>Resolve cart items to checkout</button>@endif
                         </div>
                     </div>
                 </div>

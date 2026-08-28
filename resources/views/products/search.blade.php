@@ -44,7 +44,7 @@
                     </a>
                     <p class="text-sm text-gray-500 mb-3 line-clamp-2">{{ $product->short_description ?? Str::limit($product->description, 100) }}</p>
                     <div class="flex items-center justify-between">
-                        <span class="text-xl font-bold text-gray-900">${{ number_format($product->price, 2) }}</span>
+                        <span class="text-xl font-bold text-gray-900">{{ $product->store_price_label }}</span>
                         <a href="{{ route('products.show', $product) }}" class="text-white bg-blue-700 hover:bg-blue-800 font-medium rounded-lg text-sm px-4 py-2">View Details</a>
                     </div>
                 </div>

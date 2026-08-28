@@ -39,10 +39,10 @@ class RefundItemModelTest extends TestCase
             'payment_status' => 'paid',
             'shipping_status' => 'delivered',
         ]);
-        $cat = ProductCategory::create(['name' => 'RI Cat', 'slug' => 'ri-cat-' . uniqid()]);
+        $cat = ProductCategory::create(['name' => 'RI Cat', 'slug' => 'ri-cat-'.uniqid()]);
         $product = Product::create([
             'name' => 'RI Product',
-            'slug' => 'ri-prod-' . uniqid(),
+            'slug' => 'ri-prod-'.uniqid(),
             'price' => 50.00,
             'category_id' => $cat->id,
             'inventory_count' => 10,
@@ -57,6 +57,7 @@ class RefundItemModelTest extends TestCase
         $refund = Refund::create([
             'order_id' => $order->id,
             'amount' => 50.00,
+            'reason' => 'Damaged flowers',
             'status' => 'pending',
         ]);
 

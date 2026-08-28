@@ -46,6 +46,8 @@ class Team extends JetstreamTeam
         ];
     }
 
+    
+
     public function customers(): HasMany
     {
         return $this->hasMany(Customer::class);
@@ -65,7 +67,7 @@ class Team extends JetstreamTeam
     {
         return $this->hasMany(Invoice::class);
     }
-
+    
     public function productCategories(): HasMany
     {
         return $this->hasMany(ProductCategory::class);
@@ -73,6 +75,8 @@ class Team extends JetstreamTeam
 
     public function collections(): HasMany
     {
-        return $this->hasMany(ProductCollection::class);
+        return $this->hasMany(Collection::class);
     }
+
+  
 }

@@ -3,68 +3,39 @@
 namespace App\Http\Controllers\Frontend;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\CatalogueBrowseRequest;
 use App\Models\BrowsingHistory;
 use App\Models\Product;
 use App\Models\ProductCategory;
-use App\Models\StockNotification;
-use App\Services\UserHistoryRecommender;
+use App\Services\RecommendationService;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
+use Illuminate\Support\Facades\Session;
+use Illuminate\Support\Facades\Storage;
 use Spatie\QueryBuilder\AllowedFilter;
+use Spatie\QueryBuilder\AllowedSort;
 use Spatie\QueryBuilder\QueryBuilder;
 
 class ProductController extends Controller
 {
-    protected $recommender;
+    protected $recommendationService;
 
-    public function __construct(UserHistoryRecommender $recommender)
+    public function __construct(RecommendationService $recommendationService)
     {
-        $this->recommender = $recommender;
+        $this->recommendationService = $recommendationService;
     }
 
-    /**
-     * Register interest in an out-of-stock product. Guests supply an email;
-     * authenticated users are linked by id. Duplicate pending subscriptions are
-     * collapsed so a shopper is only emailed once per restock.
-     */
-    public function notifyMe(Request $request, Product $product)
-    {
-        $validated = $request->validate([
-            'email' => 'required_without:user_id|nullable|email',
-        ]);
-
-        $email = $request->user()?->email ?? ($validated['email'] ?? null);
-
-        if (! $email) {
-            return response()->json(['success' => false, 'message' => 'An email address is required.'], 422);
-        }
-
-        StockNotification::firstOrCreate(
-            [
-                'product_id' => $product->id,
-                'email' => $email,
-                'notification_type' => 'back_in_stock',
-                'notified' => false,
-            ],
-            ['user_id' => $request->user()?->id]
-        );
-
-        return response()->json([
-            'success' => true,
-            'message' => 'You will be notified when this product is back in stock.',
-        ]);
-    }
-
-    public function index(Request $request)
+    public function index(CatalogueBrowseRequest $request)
     {
         $query = QueryBuilder::for(Product::class)
             ->allowedFilters(
                 'name',
-                'price',
+                AllowedFilter::callback('price', fn ($query, $value) => $query->priceMin($value)->priceMax($value)),
                 'created_at',
                 AllowedFilter::scope('price_min'),
                 AllowedFilter::scope('price_max'),
             )
-            ->allowedSorts('name', 'price', 'created_at');
+            ->allowedSorts('name', AllowedSort::callback('price', fn ($query, bool $descending) => $query->orderByStorePrice($descending)), 'created_at');
 
         if ($request->filled('keyword') || $request->filled('search')) {
             $keyword = $request->input('keyword') ?? $request->input('search');
@@ -81,7 +52,7 @@ class ProductController extends Controller
         return view('products.index', compact('products'));
     }
 
-    public function search(Request $request)
+    public function search(CatalogueBrowseRequest $request)
     {
         $keyword = $request->input('keyword', '');
         $minPrice = $request->input('min_price');
@@ -99,11 +70,11 @@ class ProductController extends Controller
         }
 
         if ($minPrice !== null) {
-            $query->where('price', '>=', (float) $minPrice);
+            $query->priceMin($minPrice);
         }
 
         if ($maxPrice !== null) {
-            $query->where('price', '<=', (float) $maxPrice);
+            $query->priceMax($maxPrice);
         }
 
         if ($categoryId) {
@@ -130,7 +101,7 @@ class ProductController extends Controller
         // // Get recommendations
         // $recommendations = [];
         // if (auth()->check()) {
-        //     $recommendations = $this->recommender->getRecommendations(auth()->user());
+        //     $recommendations = $this->recommendationService->getRecommendations(auth()->user());
         // }
 
         // $metaTitle = $product->meta_title ?? $product->name;
@@ -140,4 +111,118 @@ class ProductController extends Controller
 
         return view('products.show', compact('product'));
     }
+
+    // public function create(Request $request)
+    // {
+    //     // Handle Product File Upload
+    //     if ($request->hasFile('product_file')) {
+    //         $file = $request->file('product_file');
+    //         $filePath = $file->store('public/downloadable_products');
+    //         $fileUrl = Storage::url($filePath);
+    //     } else {
+    //         $fileUrl = null;
+    //     }
+
+    //     $validatedData = $request->validate([
+    //         'name' => 'required|string|max:255',
+    //         'description' => 'required|string',
+    //         'price' => 'required|numeric',
+    //         'category' => 'required|string|max:255',
+    //         'inventory_count' => 'required|integer',
+    //         // Include download limit in validation
+    //         'download_limit' => 'integer|nullable',
+    //     ]);
+
+    //     $product = Product::create($validatedData);
+
+    //     // Create an initial inventory log entry
+    //     $product->inventoryLogs()->create([
+    //         'quantity_change' => $validatedData['inventory_count'],
+    //         'reason' => 'Initial stock setup',
+    //     ]);
+
+    //     return response()->json($product, Response::HTTP_CREATED);
+    // }
+
+    // public function update(Request $request, $id)
+    // {
+    //     $product = Product::find($id);
+
+    //     if (!$product) {
+    //         return response()->json(['message' => 'Product not found'], Response::HTTP_NOT_FOUND);
+    //     }
+
+    //     $validatedData = $request->validate([
+    //         'name' => 'string|max:255',
+    //         'description' => 'string',
+    //         'price' => 'numeric',
+    //         'category' => 'string|max:255',
+    //         'inventory_count' => 'integer',
+    //     ]);
+
+    //     // Handle Product File Upload for Update
+    //     if ($request->hasFile('product_file')) {
+    //         $file = $request->file('product_file');
+    //         $filePath = $file->store('public/downloadable_products');
+    //         $fileUrl = Storage::url($filePath);
+    //         // Update Downloadable Product entry
+    //         $product->downloadable()->updateOrCreate(['product_id' => $product->id], ['file_url' => $fileUrl, 'download_limit' => $request->download_limit]);
+    //     }
+
+    //     $product->update($validatedData);
+
+    //     return response()->json($product);
+    // }
+
+    // public function delete($id)
+    // {
+    //     $product = Product::find($id);
+
+    //     if (!$product) {
+    //         return response()->json(['message' => 'Product not found'], Response::HTTP_NOT_FOUND);
+    //     }
+
+    //     $product->delete();
+
+    //     return response()->json(['message' => 'Product deleted successfully']);
+    // }
+
+    // public function addToCompare(Request $request, $id)
+    // {
+    //     $product = Product::findOrFail($id);
+    //     $compareList = Session::get('compare_list', []);
+
+    //     if (!in_array($id, $compareList) && count($compareList) < 4) {
+    //         $compareList[] = $id;
+    //         Session::put('compare_list', $compareList);
+    //         return redirect()->back()->with('success', 'Product added to comparison.');
+    //     } elseif (in_array($id, $compareList)) {
+    //         return redirect()->back()->with('info', 'Product is already in the comparison list.');
+    //     } else {
+    //         return redirect()->back()->with('error', 'You can compare up to 4 products at a time.');
+    //     }
+    // }
+
+    // public function compare()
+    // {
+    //     $compareList = Session::get('compare_list', []);
+    //     $products = Product::whereIn('id', $compareList)->get();
+
+    //     return view('products.compare', compact('products'));
+    // }
+
+    // public function removeFromCompare($id)
+    // {
+    //     $compareList = Session::get('compare_list', []);
+    //     $compareList = array_diff($compareList, [$id]);
+    //     Session::put('compare_list', $compareList);
+
+    //     return redirect()->back()->with('success', 'Product removed from comparison.');
+    // }
+
+    // public function clearCompare()
+    // {
+    //     Session::forget('compare_list');
+    //     return redirect()->route('products.list')->with('success', 'Comparison list cleared.');
+    // }
 }

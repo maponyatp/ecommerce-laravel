@@ -2,6 +2,7 @@
 
 namespace App\Providers\Filament;
 
+use App\Filament\Admin\Pages\Dashboard;
 use App\Filament\Admin\Resources\MenuItemResource;
 use App\Filament\Admin\Resources\MenuResource;
 use App\Filament\Admin\Widgets\CustomerDemographicsWidget;
@@ -18,6 +19,8 @@ use App\Http\Middleware\TeamsPermission;
 use App\Models\Menu;
 use App\Models\MenuItem;
 use App\Models\Team;
+use App\Settings\GeneralSettings;
+use App\Support\AdminNavigation;
 use BezhanSalleh\FilamentShield\FilamentShieldPlugin;
 use Biostate\FilamentMenuBuilder\FilamentMenuBuilderPlugin;
 use Filament\Actions\Action;
@@ -25,7 +28,7 @@ use Filament\Facades\Filament;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
-use Filament\Pages as FilamentPage;
+use Filament\Navigation\NavigationBuilder;
 use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
@@ -38,7 +41,6 @@ use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\AuthenticateSession;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
-use Laravel\Fortify\Http\Controllers\AuthenticatedSessionController;
 use Laravel\Jetstream\Features;
 
 class AdminPanelProvider extends PanelProvider
@@ -49,12 +51,28 @@ class AdminPanelProvider extends PanelProvider
             ->default()
             ->id('admin')
             ->path('admin')
-            // ->login([AuthenticatedSessionController::class, 'create'])
-            // ->passwordReset()
+            ->login()
+            ->passwordReset()
+            ->brandName(fn (): string => app(GeneralSettings::class)->site_name)
+            ->brandLogo(function (): ?string {
+                $logoPath = app(GeneralSettings::class)->site_logo_path;
+
+                return filled($logoPath) ? asset('storage/'.$logoPath) : null;
+            })
+            ->brandLogoHeight('2.5rem')
+            ->darkMode(false)
+            ->sidebarWidth('16rem')
+            ->globalSearchKeyBindings(['command+k', 'ctrl+k'])
+            ->navigation(fn (NavigationBuilder $builder) => AdminNavigation::build($builder))
             // ->emailVerification()
             ->viteTheme('resources/css/filament/admin/theme.css')
             ->colors([
-                'primary' => Color::Gray,
+                'primary' => Color::Indigo,
+                'gray' => Color::Zinc,
+                'info' => Color::Cyan,
+                'success' => Color::Emerald,
+                'warning' => Color::Amber,
+                'danger' => Color::Rose,
             ])
             ->userMenuItems([
                 Action::make('profile')
@@ -68,7 +86,7 @@ class AdminPanelProvider extends PanelProvider
             ->discoverPages(in: app_path('Filament/Admin/Pages'), for: 'App\\Filament\\Admin\\Pages')
             ->discoverWidgets(in: app_path('Filament/Admin/Widgets'), for: 'App\\Filament\\Admin\\Widgets')
             ->pages([
-                FilamentPage\Dashboard::class,
+                Dashboard::class,
                 EditProfile::class,
                 // Pages\ApiTokenManagerPage::class,
             ])->widgets([
@@ -100,7 +118,7 @@ class AdminPanelProvider extends PanelProvider
             ])
             ->plugins([
                 FilamentShieldPlugin::make()
-                    ->navigationGroup('Administration'),
+                    ->navigationGroup('Settings'),
                 FilamentMenuBuilderPlugin::make()
                     ->usingMenuModel(Menu::class)
                     ->usingMenuItemModel(MenuItem::class)
@@ -136,6 +154,8 @@ class AdminPanelProvider extends PanelProvider
 
         return $panel;
     }
+
+    public function boot(): void {}
 
     public function shouldRegisterMenuItem(): bool
     {

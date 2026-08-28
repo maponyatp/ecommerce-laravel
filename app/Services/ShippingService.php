@@ -2,85 +2,14 @@
 
 namespace App\Services;
 
-use App\Factories\CarrierRateFactory;
-use App\Models\Product;
 use App\Models\ShippingMethod;
-use App\Models\ShippingQuote;
-use App\Services\Shipping\CarrierRate;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Http;
 
 class ShippingService
 {
-    /**
-     * Fetch live rates and PERSIST each as a ShippingQuote scoped to this session, so
-     * the buyer can later select one by id and the server bills its stored amount.
-     * Returns the persisted quotes (empty when no carrier is configured/reachable).
-     *
-     * @return Collection<int, ShippingQuote>
-     */
-    public function quoteLiveRates($cart, array $to, string $sessionId, ?int $userId = null): Collection
+    public function getAvailableShippingMethods($cart = null, $address = null, ?string $postalCode = null)
     {
-        $rates = $this->getLiveRates($cart, $to);
-        $expiresAt = now()->addMinutes((int) config('shipping.quote_ttl', 30));
-
-        return collect($rates)->map(fn (CarrierRate $rate) => ShippingQuote::create([
-            'session_id' => $sessionId,
-            'user_id' => $userId,
-            'carrier' => $rate->carrier,
-            'service' => $rate->service,
-            'amount' => $rate->amount,
-            'currency' => $rate->currency,
-            'delivery_days' => $rate->deliveryDays,
-            'rate_id' => $rate->rateId,
-            'expires_at' => $expiresAt,
-        ]));
-    }
-
-    /**
-     * Resolve a quote the caller is allowed to use: it must belong to this session (or,
-     * for a logged-in buyer, to them) and not be expired. Returns null otherwise — the
-     * caller rejects checkout rather than trusting a foreign, stale, or client-fabricated
-     * rate.
-     */
-    public function resolveQuote(int $quoteId, string $sessionId, ?int $userId = null): ?ShippingQuote
-    {
-        return ShippingQuote::query()
-            ->where('id', $quoteId)
-            ->where(function ($query) use ($sessionId, $userId) {
-                $query->where('session_id', $sessionId);
-                if ($userId !== null) {
-                    $query->orWhere('user_id', $userId);
-                }
-            })
-            ->active()
-            ->first();
-    }
-
-    /**
-     * Live carrier rates for a cart shipping to $to. Returns [] when no live-rate
-     * carrier is configured or the carrier is unreachable — the caller then falls
-     * back to the flat DB methods from getAvailableShippingMethods().
-     *
-     * @param  array  $to  destination address (name/street1/city/state/zip/country)
-     * @param  array|null  $from  origin; defaults to config('shipping.origin')
-     * @return CarrierRate[]
-     */
-    public function getLiveRates($cart, array $to, ?array $from = null): array
-    {
-        $carrier = CarrierRateFactory::create();
-        if ($carrier === null) {
-            return [];
-        }
-
-        $parcel = ['weight' => $this->calculateTotalWeight($cart)];
-
-        return $carrier->getRates($parcel, $from ?? (array) config('shipping.origin'), $to);
-    }
-
-    public function getAvailableShippingMethods($cart = null, $address = null)
-    {
-        // Only offer active methods; a deactivated method must never be selectable.
+        // Get all shipping methods
         $availableMethods = ShippingMethod::where('is_active', true)->get();
 
         if (! $cart || ! $address) {
@@ -88,8 +17,10 @@ class ShippingService
         }
 
         // Filter methods based on package weight, dimensions, and destination
-        return $availableMethods->filter(function ($method) use ($cart, $address) {
-            return $this->isMethodAvailable($method, $cart, $address);
+        return $availableMethods->filter(function ($method) use ($cart, $address, $postalCode) {
+            return (! $method->postal_codes || in_array(trim($postalCode ?? ''), $method->postal_codes, true))
+                && $method->base_rate >= 0 && $method->weight_rate >= 0
+                && $this->isMethodAvailable($method, $cart, $address);
         });
     }
 
@@ -100,8 +31,7 @@ class ShippingService
         $weightRate = $this->calculateWeightRate($method, $cart);
         $distanceRate = $this->calculateDistanceRate($method, $address);
 
-        // Round to cents: float weight math otherwise leaks e.g. 0.30000000000000004.
-        return round($baseRate + $weightRate + $distanceRate, 2);
+        return $baseRate + $weightRate + $distanceRate;
     }
 
     public function verifyAddress($address)
@@ -127,9 +57,7 @@ class ShippingService
         $totalWeight = $this->calculateTotalWeight($cart);
         $maxWeight = $method->max_weight;
 
-        // Null max_weight = no weight limit. Without this guard, `$w <= null`
-        // evaluates as `$w <= 0` in PHP, wrongly rejecting unlimited methods.
-        return $maxWeight === null || $totalWeight <= $maxWeight;
+        return $totalWeight <= $maxWeight;
     }
 
     private function calculateWeightRate($method, $cart)
@@ -148,26 +76,9 @@ class ShippingService
 
     private function calculateTotalWeight($cart)
     {
-        // The session cart is keyed by product_id and carries no weight, so look the
-        // product weights up (one batched query). An item-carried 'weight', if a
-        // future path adds one, still wins.
-        $lookupIds = [];
-        foreach ($cart as $productId => $item) {
-            if (! isset($item['weight'])) {
-                $lookupIds[] = $productId;
-            }
-        }
-        $weights = empty($lookupIds)
-            ? collect()
-            : Product::whereIn('id', $lookupIds)->pluck('weight', 'id');
-
-        $total = 0.0;
-        foreach ($cart as $productId => $item) {
-            $weight = (float) ($item['weight'] ?? $weights[$productId] ?? 0);
-            $total += $weight * $item['quantity'];
-        }
-
-        return $total;
+        return collect($cart)->sum(function (array $item): float {
+            return (float) ($item['weight'] ?? 0) * (int) ($item['quantity'] ?? 0);
+        });
     }
 
     public function calculateDropShippingCost(ShippingMethod $method, $cart, $address)

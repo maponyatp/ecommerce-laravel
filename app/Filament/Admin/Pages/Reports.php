@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Pages;
 
+use App\Models\AdvancedAnalytics;
 use Filament\Pages\Page;
 
 class Reports extends Page
@@ -12,28 +13,58 @@ class Reports extends Page
 
     protected static ?int $navigationSort = 8;
 
-    protected function getHeaderWidgets(): array
+    public string $selectedCube = 'sales';
+    public string $selectedDimension = 'product_id';
+    public string $selectedMeasure = 'revenue';
+    
+    public array $cubes = [];
+    public array $dimensions = [];
+    public array $measures = [];
+    public array $reportData = [];
+
+    public function mount(): void
     {
-        return [
-            \App\Filament\Admin\Widgets\SalesOverviewWidget::class,
-            \App\Filament\Admin\Widgets\InventoryStatsWidget::class,
-        ];
+        $this->cubes = AdvancedAnalytics::getCubes();
+        $this->updateSelectors();
+        $this->runQuery();
     }
 
-    public function getHeaderWidgetsColumns(): int | array
+    public function updatedSelectedCube(): void
     {
-        return 2;
+        $this->updateSelectors();
+        $this->runQuery();
     }
 
-    protected function getFooterWidgets(): array
+    public function updatedSelectedDimension(): void
     {
-        return [
-            \App\Filament\Admin\Widgets\SalesTrendsChart::class,
-            \App\Filament\Admin\Widgets\CustomerDemographicsWidget::class,
-            \App\Filament\Admin\Widgets\CustomerGrowthWidget::class,
-            \App\Filament\Admin\Widgets\TopProductsWidget::class,
-            \App\Filament\Admin\Widgets\LowStockInventoryWidget::class,
-            \App\Filament\Admin\Widgets\RecentOrdersWidget::class,
-        ];
+        $this->runQuery();
+    }
+
+    public function updatedSelectedMeasure(): void
+    {
+        $this->runQuery();
+    }
+
+    protected function updateSelectors(): void
+    {
+        $this->dimensions = AdvancedAnalytics::getDimensions($this->selectedCube);
+        $this->measures = AdvancedAnalytics::getMeasures($this->selectedCube);
+
+        // Ensure current selection is valid, otherwise set default
+        if (!array_key_exists($this->selectedDimension, $this->dimensions)) {
+            $this->selectedDimension = array_key_first($this->dimensions) ?: '';
+        }
+        if (!array_key_exists($this->selectedMeasure, $this->measures)) {
+            $this->selectedMeasure = array_key_first($this->measures) ?: '';
+        }
+    }
+
+    public function runQuery(): void
+    {
+        $this->reportData = AdvancedAnalytics::queryCube(
+            $this->selectedCube,
+            $this->selectedDimension,
+            $this->selectedMeasure
+        );
     }
 }

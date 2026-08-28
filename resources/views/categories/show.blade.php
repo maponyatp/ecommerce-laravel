@@ -65,7 +65,7 @@
                             </a>
                             <p class="text-sm text-gray-500 mt-2 line-clamp-2">{{ $featuredProduct->short_description ?? $featuredProduct->description }}</p>
                             <div class="mt-3 flex items-center justify-between">
-                                <span class="text-lg font-bold text-gray-900">${{ number_format($featuredProduct->price, 2) }}</span>
+                                <span class="text-lg font-bold text-gray-900">{{ \App\Support\StoreMoney::format($featuredProduct->price) }}</span>
                                 <a href="{{ route('products.show', $featuredProduct) }}" class="text-sm font-medium text-blue-600 hover:text-blue-700">View</a>
                             </div>
                         </div>

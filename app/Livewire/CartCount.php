@@ -2,7 +2,7 @@
 
 namespace App\Livewire;
 
-use App\Services\CartService;
+use Illuminate\Support\Facades\Session;
 use Livewire\Attributes\On;
 use Livewire\Component;
 
@@ -13,11 +13,18 @@ class CartCount extends Component
 
     public function render()
     {
+        $count = 0;
+        $cart = Session::get('cart', []);
+
+        foreach (is_array($cart) ? $cart : [] as $item) {
+            $quantity = is_array($item) ? ($item['quantity'] ?? null) : null;
+            if ((is_int($quantity) || (is_string($quantity) && ctype_digit($quantity))) && $quantity >= 1 && $quantity <= 9999) {
+                $count += (int) $quantity;
+            }
+        }
+
         return view('livewire.cart-count', [
-            // Counted in the database rather than summed out of a session
-            // array: guests and accounts now keep their cart in the same place,
-            // and this badge was the last thing reading the old copy.
-            'count' => app(CartService::class)->count(),
+            'count' => $count,
         ]);
     }
 }

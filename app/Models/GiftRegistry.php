@@ -2,16 +2,16 @@
 
 namespace App\Models;
 
+use App\Traits\IsTenantModel;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Illuminate\Support\Str;
 
 class GiftRegistry extends Model
 {
-    use HasFactory;
+    use HasFactory, IsTenantModel;
 
     protected $fillable = [
         'user_id',
@@ -40,10 +40,10 @@ class GiftRegistry extends Model
     protected static function booted(): void
     {
         static::creating(function ($registry) {
-            if (! $registry->slug) {
-                $registry->slug = Str::slug($registry->name.'-'.Str::random(8));
+            if (!$registry->slug) {
+                $registry->slug = Str::slug($registry->name . '-' . Str::random(8));
             }
-            if ($registry->privacy === 'private' && ! $registry->access_code) {
+            if ($registry->privacy === 'private' && !$registry->access_code) {
                 $registry->access_code = strtoupper(Str::random(8));
             }
         });
@@ -59,7 +59,7 @@ class GiftRegistry extends Model
         return $this->hasMany(GiftRegistryItem::class, 'registry_id');
     }
 
-    public function purchases(): HasManyThrough
+    public function purchases(): HasMany
     {
         return $this->hasManyThrough(
             GiftRegistryPurchase::class,

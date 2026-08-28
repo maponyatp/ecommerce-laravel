@@ -12,8 +12,9 @@
                     <input type="text" class="form-control" id="name" name="name" required>
                 </div>
                 <div class="form-group">
-                    <label for="details">Details</label>
+                    <label for="details">Payment-provider reference</label>
                     <textarea class="form-control" id="details" name="details" required></textarea>
+                    <small class="form-text text-muted">Enter only a token supplied by your payment provider (for example, a Stripe <code>pm_</code> token). Never enter card details or a CVV.</small>
                 </div>
                 <button type="submit" class="btn btn-primary">Add Payment Method</button>
             </form>

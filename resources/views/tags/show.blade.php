@@ -20,7 +20,7 @@
                         <div class="card-body">
                             <h5 class="card-title">{{ $product->name }}</h5>
                             <p class="card-text">{{ $product->description }}</p>
-                            <p class="text-muted">Price: ${{ number_format($product->price, 2) }}</p>
+                            <p class="text-muted">Price: {{ $product->store_price_label }}</p>
                         </div>
                     </div>
                 </div>

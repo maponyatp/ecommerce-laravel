@@ -1,270 +1,53 @@
 <div class="fixed bottom-4 right-4 z-50">
     @if($isOpen)
-        <!-- Chat Window -->
-        <div class="bg-white rounded-lg shadow-2xl w-96 h-[500px] flex flex-col">
-            <!-- Chat Header -->
-            <div class="bg-primary-700 text-white p-4 rounded-t-lg flex justify-between items-center">
-                <div class="flex items-center space-x-2">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path>
-                    </svg>
-                    <span class="font-semibold">Customer Support</span>
-                </div>
-                <button wire:click="closeChat" class="text-white hover:text-gray-200">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                    </svg>
-                </button>
+        <section aria-label="Customer support chat" class="flex h-[500px] w-80 max-w-[calc(100vw-2rem)] flex-col rounded-2xl border border-gray-200 bg-white shadow-2xl">
+            <header class="flex items-center justify-between rounded-t-2xl bg-blue-600 p-4 text-white">
+                <h2 class="font-semibold">Customer support</h2>
+                <button type="button" wire:click="toggleChat" aria-label="Minimize chat">−</button>
+            </header>
+            <div role="alert" class="px-4 text-sm text-red-700">
+                @error('chat') <p>{{ $message }}</p> @enderror
+                @error('newMessage') <p>{{ $message }}</p> @enderror
+                @error('rating') <p>{{ $message }}</p> @enderror
+                @error('feedback') <p>{{ $message }}</p> @enderror
             </div>
-
             @if($showRating)
-                <!-- Rating Form -->
-                <div class="flex-1 flex flex-col items-center justify-center p-6 space-y-4">
-                    <h3 class="text-lg font-semibold text-gray-800">How was your experience?</h3>
-                    
-                    <div class="flex space-x-2">
-                        @for($i = 1; $i <= 5; $i++)
-                            <button 
-                                wire:click="$set('rating', {{ $i }})"
-                                class="text-3xl {{ $rating >= $i ? 'text-yellow-400' : 'text-gray-300' }} hover:text-yellow-400 transition">
-                                ⭐
-                            </button>
-                        @endfor
-                    </div>
-
-                    <textarea 
-                        wire:model="feedback"
-                        placeholder="Any additional feedback? (optional)"
-                        class="w-full p-2 border rounded-lg focus:ring-2 focus:ring-primary-600 focus:border-transparent"
-                        rows="3"></textarea>
-
-                    <button 
-                        wire:click="submitRating"
-                        class="bg-primary-700 text-white px-6 py-2 rounded-lg hover:bg-primary-600 transition">
-                        Submit Feedback
-                    </button>
-                </div>
+                <form wire:submit="submitRating" class="flex flex-1 flex-col gap-4 p-4">
+                    <label for="chat-rating" class="font-medium">How was your experience?</label>
+                    <select id="chat-rating" wire:model="rating" class="rounded-lg border-gray-300">
+                        <option value="0">Choose a rating</option>
+                        @for($score = 1; $score <= 5; $score++)<option value="{{ $score }}">{{ $score }} / 5</option>@endfor
+                    </select>
+                    <label for="chat-feedback">Feedback (optional)</label>
+                    <textarea id="chat-feedback" wire:model="feedback" maxlength="1000" rows="3" class="rounded-lg border-gray-300"></textarea>
+                    <button type="submit" wire:loading.attr="disabled" class="rounded-lg bg-blue-600 px-4 py-2 text-white">Submit feedback</button>
+                    <button type="button" wire:click="toggleChat" class="text-sm text-gray-600">Skip and minimize</button>
+                </form>
             @else
-                <!-- Chat Messages -->
-                <div class="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50" id="chat-messages-{{ $sessionId }}">
-                    @if($isLoading)
-                        <div class="flex justify-center items-center h-full">
-                            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-700"></div>
+                <div wire:poll.5s="refreshMessages" role="log" aria-label="Chat messages" aria-live="polite" class="flex-1 space-y-3 overflow-y-auto bg-gray-50 p-4">
+                    @forelse($messages as $message)
+                        <div wire:key="chat-message-{{ $message['id'] }}" class="rounded-lg p-3 {{ $message['sender_type'] === 'customer' ? 'bg-gray-200' : 'bg-blue-100' }}">
+                            <span class="text-xs font-semibold text-gray-600">{{ $message['sender_type'] === 'customer' ? 'You' : 'Support' }}</span>
+                            <p class="whitespace-pre-wrap break-words text-sm text-gray-900">{{ $message['message'] }}</p>
                         </div>
-                    @else
-                        <div id="messages-container-{{ $sessionId }}">
-                            <!-- Messages will be loaded here via JavaScript -->
-                        </div>
-                    @endif
+                    @empty
+                        <p class="text-sm text-gray-600">Start a conversation with our flower shop team.</p>
+                    @endforelse
+                    <p class="text-xs text-gray-500">Showing the latest 100 messages.</p>
                 </div>
-
-                <!-- Message Input -->
-                <div class="p-4 border-t bg-white rounded-b-lg">
-                    <form wire:submit.prevent="sendMessage" class="flex space-x-2">
-                        <input 
-                            type="text" 
-                            wire:model="newMessage"
-                            placeholder="Type your message..."
-                            class="flex-1 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-600 focus:border-transparent"
-                            autocomplete="off">
-                        <button 
-                            type="submit"
-                            class="bg-primary-700 text-white px-4 py-2 rounded-lg hover:bg-primary-600 transition flex items-center">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
-                            </svg>
-                        </button>
+                @if($status === 'closed')
+                    <div class="p-4"><p class="mb-2 text-sm">This chat is closed.</p><button type="button" wire:click="loadOrCreateConversation" wire:loading.attr="disabled" class="text-blue-700">Start a new chat</button></div>
+                @else
+                    <form wire:submit="sendMessage" class="flex gap-2 border-t p-4">
+                        <label for="chat-message" class="sr-only">Your message</label>
+                        <input id="chat-message" wire:model="newMessage" maxlength="5000" placeholder="Type your message…" class="min-w-0 flex-1 rounded-lg border-gray-300" autocomplete="off">
+                        <button type="submit" wire:loading.attr="disabled" class="rounded-lg bg-blue-600 px-3 py-2 text-white">Send</button>
                     </form>
-                </div>
+                    <button type="button" wire:click="closeChat" wire:loading.attr="disabled" class="pb-3 text-sm text-gray-600">End chat</button>
+                @endif
             @endif
-        </div>
+        </section>
     @else
-        <!-- Chat Button -->
-        <button 
-            wire:click="toggleChat"
-            class="bg-primary-700 hover:bg-primary-600 text-white rounded-full p-4 shadow-lg transition transform hover:scale-110">
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path>
-            </svg>
-        </button>
+        <button type="button" wire:click="toggleChat" wire:loading.attr="disabled" aria-label="Open customer support chat" class="rounded-full bg-blue-600 px-5 py-3 text-white shadow-lg">Chat with us</button>
     @endif
 </div>
-
-@push('scripts')
-<script>
-(function() {
-    const sessionId = @js($sessionId);
-    let conversationId = null;
-    let messages = [];
-    let pollingInterval = null;
-
-    async function loadConversation() {
-        try {
-            const response = await fetch(`/chat/session/${sessionId}`);
-            const data = await response.json();
-            
-            if (data.conversation) {
-                conversationId = data.conversation.id;
-                messages = data.conversation.messages || [];
-                renderMessages();
-            }
-        } catch (error) {
-            console.error('Error loading conversation:', error);
-        }
-    }
-
-    async function startChat() {
-        try {
-            const response = await fetch('/chat/start', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
-                },
-                body: JSON.stringify({})
-            });
-            
-            const data = await response.json();
-            
-            if (data.success) {
-                conversationId = data.conversation.id;
-                messages = data.conversation.messages || [];
-                renderMessages();
-            }
-        } catch (error) {
-            console.error('Error starting chat:', error);
-        }
-    }
-
-    async function sendMessage(message) {
-        if (!conversationId) {
-            await startChat();
-        }
-
-        if (!message.trim()) return;
-
-        try {
-            const response = await fetch(`/chat/${conversationId}/message`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
-                },
-                body: JSON.stringify({ message })
-            });
-            
-            const data = await response.json();
-            
-            if (data.success) {
-                await loadMessages();
-            }
-        } catch (error) {
-            console.error('Error sending message:', error);
-        }
-    }
-
-    async function loadMessages() {
-        if (!conversationId) return;
-
-        try {
-            const response = await fetch(`/chat/${conversationId}/messages`);
-            const data = await response.json();
-            
-            if (data.success && data.conversation) {
-                messages = data.conversation.messages || [];
-                renderMessages();
-            }
-        } catch (error) {
-            console.error('Error loading messages:', error);
-        }
-    }
-
-    function renderMessages() {
-        const container = document.getElementById(`messages-container-${sessionId}`);
-        if (!container) return;
-
-        container.innerHTML = messages.map(msg => {
-            const isAgent = msg.sender_type === 'agent' || msg.sender_type === 'system';
-            const bgColor = isAgent ? 'bg-primary-100' : 'bg-surface';
-            const alignment = isAgent ? 'items-start' : 'items-end';
-            
-            return `
-                <div class="flex ${alignment}">
-                    <div class="${bgColor} rounded-lg p-3 max-w-[80%]">
-                        <p class="text-sm text-gray-800">${escapeHtml(msg.message)}</p>
-                        <span class="text-xs text-gray-500">${new Date(msg.created_at).toLocaleTimeString()}</span>
-                    </div>
-                </div>
-            `;
-        }).join('');
-
-        // Scroll to bottom
-        setTimeout(() => {
-            const messagesDiv = document.getElementById(`chat-messages-${sessionId}`);
-            if (messagesDiv) {
-                messagesDiv.scrollTop = messagesDiv.scrollHeight;
-            }
-        }, 100);
-    }
-
-    function startPolling() {
-        if (pollingInterval) {
-            clearInterval(pollingInterval);
-        }
-        
-        pollingInterval = setInterval(() => {
-            if (conversationId && {{ $isOpen ? 'true' : 'false' }}) {
-                loadMessages();
-            }
-        }, 3000); // Poll every 3 seconds
-    }
-
-    function escapeHtml(text) {
-        const map = {
-            '&': '&amp;',
-            '<': '&lt;',
-            '>': '&gt;',
-            '"': '&quot;',
-            "'": '&#039;'
-        };
-        return text.replace(/[&<>"']/g, m => map[m]);
-    }
-
-    // Initialize
-    loadConversation();
-    startPolling();
-    
-    // Listen for Livewire events
-    document.addEventListener('livewire:init', () => {
-        Livewire.on('chat-send-message', (data) => {
-            sendMessage(data[0].message);
-        });
-        
-        Livewire.on('chat-submit-rating', async (data) => {
-            try {
-                await fetch(`/chat/${data[0].conversationId}/rating`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
-                    },
-                    body: JSON.stringify({
-                        rating: data[0].rating,
-                        feedback: data[0].feedback
-                    })
-                });
-
-                await fetch(`/chat/${data[0].conversationId}/close`, {
-                    method: 'POST',
-                    headers: {
-                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
-                    }
-                });
-            } catch (error) {
-                console.error('Error submitting rating:', error);
-            }
-        });
-    });
-})();
-</script>
-@endpush

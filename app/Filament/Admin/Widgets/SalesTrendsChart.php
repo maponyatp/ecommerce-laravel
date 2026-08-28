@@ -3,11 +3,13 @@
 namespace App\Filament\Admin\Widgets;
 
 use App\Services\AnalyticsService;
+use App\Support\StoreMoney;
 use Filament\Widgets\ChartWidget;
 
 class SalesTrendsChart extends ChartWidget
 {
     protected ?string $heading = 'Sales Trends';
+
     protected static ?int $sort = 2;
 
     protected function getData(): array
@@ -28,7 +30,7 @@ class SalesTrendsChart extends ChartWidget
         return [
             'datasets' => [
                 [
-                    'label' => 'Revenue ($)',
+                    'label' => 'Paid order totals ('.StoreMoney::currency().')',
                     'data' => $revenueData,
                     'borderColor' => 'rgb(59, 130, 246)',
                     'backgroundColor' => 'rgba(59, 130, 246, 0.1)',

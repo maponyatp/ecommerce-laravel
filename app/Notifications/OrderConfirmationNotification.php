@@ -7,6 +7,7 @@ use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
+use Illuminate\Support\Facades\URL;
 
 class OrderConfirmationNotification extends Notification implements ShouldQueue
 {
@@ -36,42 +37,54 @@ class OrderConfirmationNotification extends Notification implements ShouldQueue
     public function toMail(object $notifiable): MailMessage
     {
         $order = $this->order;
-        
+
         $mailMessage = (new MailMessage)
-            ->subject('Order Confirmation #' . $order->id)
+            ->subject('Order Confirmation #'.$order->id)
             ->greeting('Thank you for your order!')
             ->line('Your order has been successfully placed.')
-            ->line('Order Number: #' . $order->id)
-            ->line('Total Amount: $' . number_format($order->total_amount, 2));
+            ->line('Order Number: #'.$order->id)
+            ->line('Total Amount: '.$order->formatMoney($order->total_amount));
+
+        if ($order->status === 'payment_received_stock_review') {
+            $mailMessage->line('Payment was received, but stock needs manual review. Please contact the store before making another payment.');
+        }
 
         if ($order->shipping_address) {
-            $mailMessage->line('Shipping Address: ' . $order->shipping_address);
+            $mailMessage->line('Shipping Address: '.$order->shipping_address);
+        }
+
+        if ($order->delivery_window_label) {
+            $mailMessage->line('Requested delivery window: '.$order->delivery_window_label);
+            $mailMessage->line($order->deliveryBooking?->status === 'confirmed'
+                ? 'Delivery booking confirmed.'
+                : 'This delivery window is NOT confirmed. Contact the shop to arrange an available window; please do not pay again.');
         }
 
         if ($order->shippingMethod) {
-            $mailMessage->line('Shipping Method: ' . $order->shippingMethod->name)
-                        ->line('Estimated Delivery: ' . $order->shippingMethod->estimated_delivery_time);
+            $mailMessage->line('Shipping Method: '.$order->shippingMethod->name)
+                ->line('Estimated Delivery: '.$order->shippingMethod->estimated_delivery_time);
         }
 
         // Add order items
         $mailMessage->line('**Order Items:**');
         foreach ($order->items as $item) {
-            $mailMessage->line('- ' . $item->product->name . ' (Qty: ' . $item->quantity . ') - $' . number_format($item->price * $item->quantity, 2));
+            $mailMessage->line('- '.($item->product_name_snapshot ?? $item->product->name ?? 'Product #'.$item->product_id).($item->sku_snapshot ? ' [SKU: '.$item->sku_snapshot.']' : '').' (Qty: '.$item->quantity.') - '.$order->formatMoney($item->price * $item->quantity));
         }
 
         // Check for downloadable products
-        $hasDownloadable = $order->items->contains(function($item) {
+        $hasDownloadable = $order->items->contains(function ($item) {
             return $item->product->is_downloadable ?? false;
         });
 
         if ($hasDownloadable) {
-            $mailMessage->line('Your digital products will be available for download in your account.')
-                        ->action('View Downloads', route('orders.show', $order->id));
+            $mailMessage->line('Open your order details below to download your digital products. No account is needed when using this private email link.');
         }
 
-        $mailMessage->line('We will send you another email when your order ships.')
-                    ->action('View Order Details', route('orders.show', $order->id))
-                    ->line('Thank you for shopping with us!');
+        if ($order->shipping_address) {
+            $mailMessage->line('Your delivery details are available on your order page.');
+        }
+        $mailMessage->action('View Order Details', $this->confirmationUrl($order))
+            ->line('Thank you for shopping with us!');
 
         return $mailMessage;
     }
@@ -85,5 +98,14 @@ class OrderConfirmationNotification extends Notification implements ShouldQueue
             'order_id' => $this->order->id,
             'total_amount' => $this->order->total_amount,
         ];
+    }
+
+    private function confirmationUrl(Order $order): string
+    {
+        return URL::temporarySignedRoute(
+            'checkout.confirmation',
+            now()->addDays(30),
+            ['order' => $order->id],
+        );
     }
 }

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\ChatConversation;
 use App\Models\User;
 use App\Services\ChatService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -17,6 +18,14 @@ class ChatControllerTest extends TestCase
     {
         parent::setUp();
         $this->chatService = app(ChatService::class);
+    }
+
+    private function ownedConversation(array $data): ChatConversation
+    {
+        $conversation = $this->chatService->createConversation($data);
+        $this->withSession(['chat_conversation_id' => $conversation->id, 'chat_session_id' => $conversation->session_id]);
+
+        return $conversation;
     }
 
     public function test_start_chat_creates_conversation(): void
@@ -41,7 +50,7 @@ class ChatControllerTest extends TestCase
 
     public function test_get_conversation_by_session(): void
     {
-        $this->chatService->createConversation(['session_id' => 'sess_get_test']);
+        $this->ownedConversation(['session_id' => 'sess_get_test']);
 
         $response = $this->get(route('chat.session', 'sess_get_test'));
 
@@ -59,12 +68,11 @@ class ChatControllerTest extends TestCase
 
     public function test_send_message_to_conversation(): void
     {
-        $conversation = $this->chatService->createConversation(['session_id' => 'sess_msg_test']);
+        $conversation = $this->ownedConversation(['session_id' => 'sess_msg_test']);
 
-        $response = $this->withSession(['chat_conversations' => ['sess_msg_test']])
-            ->postJson(route('chat.message', $conversation->id), [
-                'message' => 'Hello, I need help!',
-            ]);
+        $response = $this->postJson(route('chat.message', $conversation->id), [
+            'message' => 'Hello, I need help!',
+        ]);
 
         $response->assertStatus(200);
         $response->assertJsonPath('success', true);
@@ -73,7 +81,7 @@ class ChatControllerTest extends TestCase
 
     public function test_send_message_requires_message_field(): void
     {
-        $conversation = $this->chatService->createConversation(['session_id' => 'sess_msg_validate']);
+        $conversation = $this->ownedConversation(['session_id' => 'sess_msg_validate']);
 
         $response = $this->postJson(route('chat.message', $conversation->id), []);
 
@@ -82,10 +90,9 @@ class ChatControllerTest extends TestCase
 
     public function test_get_messages_for_conversation(): void
     {
-        $conversation = $this->chatService->createConversation(['session_id' => 'sess_msgs']);
+        $conversation = $this->ownedConversation(['session_id' => 'sess_msgs']);
 
-        $response = $this->withSession(['chat_conversations' => ['sess_msgs']])
-            ->get(route('chat.messages', $conversation->id));
+        $response = $this->get(route('chat.messages', $conversation->id));
 
         $response->assertStatus(200);
         $response->assertJsonPath('success', true);
@@ -100,10 +107,9 @@ class ChatControllerTest extends TestCase
 
     public function test_close_conversation(): void
     {
-        $conversation = $this->chatService->createConversation(['session_id' => 'sess_close_test']);
+        $conversation = $this->ownedConversation(['session_id' => 'sess_close_test']);
 
-        $response = $this->withSession(['chat_conversations' => ['sess_close_test']])
-            ->postJson(route('chat.close', $conversation->id));
+        $response = $this->postJson(route('chat.close', $conversation->id));
 
         $response->assertStatus(200);
         $response->assertJsonPath('success', true);
@@ -112,13 +118,12 @@ class ChatControllerTest extends TestCase
 
     public function test_submit_satisfaction_rating(): void
     {
-        $conversation = $this->chatService->createConversation(['session_id' => 'sess_rating_test']);
+        $conversation = $this->ownedConversation(['session_id' => 'sess_rating_test']);
 
-        $response = $this->withSession(['chat_conversations' => ['sess_rating_test']])
-            ->postJson(route('chat.rating', $conversation->id), [
-                'rating' => 5,
-                'feedback' => 'Excellent!',
-            ]);
+        $response = $this->postJson(route('chat.rating', $conversation->id), [
+            'rating' => 5,
+            'feedback' => 'Excellent!',
+        ]);
 
         $response->assertStatus(200);
         $response->assertJsonPath('success', true);
@@ -126,7 +131,7 @@ class ChatControllerTest extends TestCase
 
     public function test_submit_rating_requires_valid_rating(): void
     {
-        $conversation = $this->chatService->createConversation(['session_id' => 'sess_rating_val']);
+        $conversation = $this->ownedConversation(['session_id' => 'sess_rating_val']);
 
         $response = $this->postJson(route('chat.rating', $conversation->id), [
             'rating' => 6,
@@ -138,7 +143,7 @@ class ChatControllerTest extends TestCase
     public function test_assign_agent_requires_admin_role(): void
     {
         $user = User::factory()->create();
-        $conversation = $this->chatService->createConversation(['session_id' => 'sess_agent_auth']);
+        $conversation = $this->ownedConversation(['session_id' => 'sess_agent_auth']);
 
         $response = $this->actingAs($user)
             ->postJson(route('chat.assign', $conversation->id));

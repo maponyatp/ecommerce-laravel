@@ -9,7 +9,7 @@
         <!-- Page Header -->
         <div class="mb-8">
             <h1 class="text-3xl font-bold text-gray-900">Checkout</h1>
-            <p class="text-gray-500 mt-1">Complete your order securely</p>
+            <p class="text-gray-500 mt-1">Prices and payments are in {{ \App\Support\StoreMoney::currency() }}. International buyers can order for the supported delivery destinations shown below. Your bank may apply conversion fees.</p>
         </div>
 
         <!-- Progress Steps -->
@@ -89,7 +89,7 @@
                                     type="email"
                                     id="email"
                                     name="email"
-                                    value="{{ old('email') }}"
+                                    value="{{ old('email', auth()->user()?->email) }}"
                                     required
                                     placeholder="you@example.com"
                                     class="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors @error('email') border-red-500 @enderror"
@@ -102,6 +102,8 @@
                     </div>
 
                     @if($hasPhysicalProducts)
+                    @include('checkout.billing-details')
+
                     <!-- Shipping Information -->
                     <div class="bg-white rounded-xl shadow-sm border border-gray-200 mb-6">
                         <div class="px-6 py-4 border-b border-gray-100">
@@ -116,6 +118,15 @@
                             </div>
                         </div>
                         <div class="px-6 py-5 space-y-5">
+                            <p class="text-sm text-gray-600">Enter the flower recipient's delivery address, which may differ from your own address.</p>
+                            <div class="grid gap-4 sm:grid-cols-2">
+                                <div><label for="delivery_contact_name" class="block text-sm font-medium text-gray-700">Recipient name *</label><input id="delivery_contact_name" name="delivery_contact_name" value="{{ old('delivery_contact_name') }}" autocomplete="shipping name" required maxlength="120" class="mt-1 w-full rounded-lg border-gray-300"></div>
+                                <div><label for="delivery_phone" class="block text-sm font-medium text-gray-700">Recipient phone *</label><input type="tel" id="delivery_phone" name="delivery_phone" value="{{ old('delivery_phone') }}" autocomplete="shipping tel" placeholder="+27 82 123 4567" required maxlength="32" class="mt-1 w-full rounded-lg border-gray-300"></div>
+                                <div><label for="shipping_country" class="block text-sm font-medium text-gray-700">Delivery country *</label><select id="shipping_country" name="shipping_country" autocomplete="shipping country" required class="mt-1 w-full rounded-lg border-gray-300">@foreach(config('commerce.delivery_countries') as $code => $name)<option value="{{ $code }}" @selected(old('shipping_country', 'ZA') === $code)>{{ $name }}</option>@endforeach</select></div>
+                                <div><label for="shipping_city" class="block text-sm font-medium text-gray-700">City / town *</label><input id="shipping_city" name="shipping_city" value="{{ old('shipping_city') }}" autocomplete="shipping address-level2" required maxlength="120" class="mt-1 w-full rounded-lg border-gray-300"></div>
+                                <div><label for="shipping_region" class="block text-sm font-medium text-gray-700">Province / region</label><input id="shipping_region" name="shipping_region" value="{{ old('shipping_region') }}" autocomplete="shipping address-level1" maxlength="120" class="mt-1 w-full rounded-lg border-gray-300"></div>
+                                <div><label for="shipping_postal_code" class="block text-sm font-medium text-gray-700">Postal code *</label><input id="shipping_postal_code" name="shipping_postal_code" value="{{ old('shipping_postal_code') }}" autocomplete="shipping postal-code" required maxlength="20" class="mt-1 w-full rounded-lg border-gray-300"></div>
+                            </div>
                             <div>
                                 <label for="shipping_address" class="block text-sm font-medium text-gray-700 mb-1.5">
                                     Shipping Address <span class="text-red-500">*</span>
@@ -125,42 +136,13 @@
                                     name="shipping_address"
                                     required
                                     rows="3"
-                                    placeholder="Street address, city, state, ZIP / postal code, country"
+                                    placeholder="Street address, building, apartment or delivery instructions"
+                                    autocomplete="shipping street-address"
                                     class="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors resize-none @error('shipping_address') border-red-500 @enderror"
                                 >{{ old('shipping_address') }}</textarea>
                                 @error('shipping_address')
                                     <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                                 @enderror
-                            </div>
-
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <div>
-                                    <label for="country" class="block text-sm font-medium text-gray-700 mb-1.5">
-                                        Country <span class="text-red-500">*</span>
-                                    </label>
-                                    <input type="text" id="country" name="country" maxlength="2"
-                                        placeholder="ISO code, e.g. US, GB"
-                                        value="{{ old('country') }}"
-                                        class="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-gray-900 uppercase focus:outline-none focus:ring-2 focus:ring-indigo-500 @error('country') border-red-500 @enderror">
-                                    @error('country')
-                                        <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-                                    @enderror
-                                </div>
-                                <div>
-                                    <label for="state" class="block text-sm font-medium text-gray-700 mb-1.5">State / Province</label>
-                                    <input type="text" id="state" name="state" value="{{ old('state') }}"
-                                        class="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                                </div>
-                                <div>
-                                    <label for="city" class="block text-sm font-medium text-gray-700 mb-1.5">City</label>
-                                    <input type="text" id="city" name="city" value="{{ old('city') }}"
-                                        class="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                                </div>
-                                <div>
-                                    <label for="postal_code" class="block text-sm font-medium text-gray-700 mb-1.5">Postal / ZIP code</label>
-                                    <input type="text" id="postal_code" name="postal_code" value="{{ old('postal_code') }}"
-                                        class="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                                </div>
                             </div>
 
                             <div>
@@ -178,7 +160,7 @@
                                                     value="{{ $method->id }}"
                                                     data-base-rate="{{ $method->base_rate }}"
                                                     class="h-4 w-4 text-indigo-600 border-gray-300 focus:ring-indigo-500"
-                                                    {{ $loop->first ? 'checked' : '' }}
+                                                    @checked((string) old('shipping_method_id', $shippingMethods->first()?->id) === (string) $method->id)
                                                 >
                                                 <div class="ml-3">
                                                     <span class="text-sm font-medium text-gray-900">{{ $method->name }}</span>
@@ -187,7 +169,7 @@
                                                     @endif
                                                 </div>
                                             </div>
-                                            <span class="text-sm font-semibold text-gray-900">${{ number_format($method->base_rate, 2) }}</span>
+                                            <span class="text-sm font-semibold text-gray-900">From {{ \App\Support\StoreMoney::format($method->base_rate) }}</span>
                                         </label>
                                     @endforeach
                                 </div>
@@ -196,15 +178,7 @@
                                 @enderror
                             </div>
 
-                            <!-- Live carrier rates (progressive enhancement; falls back to the flat methods above) -->
-                            <div>
-                                <button type="button" id="get-live-rates"
-                                    class="text-sm font-medium text-indigo-600 hover:text-indigo-800">
-                                    Get live carrier rates
-                                </button>
-                                <p id="live-rates-status" class="mt-1 text-xs text-gray-500 hidden"></p>
-                                <div id="live-rates-container" class="space-y-2 mt-2"></div>
-                            </div>
+                            @include('checkout.delivery-windows')
 
                             <!-- Drop Shipping Option -->
                             <div class="pt-2 border-t border-gray-100">
@@ -276,32 +250,6 @@
                             </div>
                         </div>
                     </div>
-                    @else
-                    <!-- Billing Location — a digital-only order still needs a country so it can be taxed. -->
-                    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                        <div class="px-6 py-4 border-b border-gray-100">
-                            <h2 class="text-lg font-semibold text-gray-900">Billing Location</h2>
-                            <p class="text-sm text-gray-500 mt-0.5">Used to calculate tax on your order.</p>
-                        </div>
-                        <div class="px-6 py-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div>
-                                <label for="country" class="block text-sm font-medium text-gray-700 mb-1.5">Country <span class="text-red-500">*</span></label>
-                                <input type="text" id="country" name="country" maxlength="2" required placeholder="ISO code, e.g. US, GB" value="{{ old('country') }}"
-                                    class="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-gray-900 uppercase focus:outline-none focus:ring-2 focus:ring-indigo-500 @error('country') border-red-500 @enderror">
-                                @error('country')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
-                            </div>
-                            <div>
-                                <label for="state" class="block text-sm font-medium text-gray-700 mb-1.5">State / Province</label>
-                                <input type="text" id="state" name="state" value="{{ old('state') }}"
-                                    class="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                            </div>
-                            <div>
-                                <label for="postal_code" class="block text-sm font-medium text-gray-700 mb-1.5">Postal / ZIP code</label>
-                                <input type="text" id="postal_code" name="postal_code" value="{{ old('postal_code') }}"
-                                    class="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                            </div>
-                        </div>
-                    </div>
                     @endif
 
                     @if($total > 0)
@@ -318,8 +266,26 @@
                             </div>
                         </div>
                         <div class="px-6 py-5 space-y-4">
+                            @if (! $canAcceptCardPayments)
+                                <div class="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900" role="alert">
+                                    Online payments are temporarily unavailable. Please contact us for assistance with your order.
+                                </div>
+                            @endif
                             <!-- Payment Method Tabs -->
                             <div class="flex rounded-lg border border-gray-200 p-1 bg-gray-50 gap-1">
+                                @if($canAcceptIkhokhaPayments)
+                                <button
+                                    type="button"
+                                    id="tab-ikhokha"
+                                    data-method="ikhokha"
+                                    onclick="selectPaymentMethod('ikhokha')"
+                                    class="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-md text-sm font-medium transition-all"
+                                >
+                                    <span class="inline-flex h-5 w-5 items-center justify-center rounded bg-emerald-600 text-[10px] font-bold text-white">iK</span>
+                                    Secure payment
+                                </button>
+                                @endif
+                                @if($canAcceptStripePayments)
                                 <button
                                     type="button"
                                     id="tab-stripe"
@@ -333,12 +299,13 @@
                                     </svg>
                                     Credit Card
                                 </button>
+                                @endif
                                 <button
                                     type="button"
                                     id="tab-paypal"
                                     data-method="paypal"
                                     onclick="selectPaymentMethod('paypal')"
-                                    class="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-md text-sm font-medium transition-all"
+                                    class="hidden"
                                 >
                                     <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
                                         <path d="M7.076 21.337H2.47a.641.641 0 0 1-.633-.74L4.944.901C5.026.382 5.474 0 5.998 0h7.46c2.57 0 4.578.543 5.69 1.81 1.01 1.15 1.304 2.42 1.012 4.287-.023.143-.047.288-.077.437-.983 5.05-4.349 6.797-8.647 6.797h-2.19c-.524 0-.968.382-1.05.9l-1.12 7.106zm14.146-14.42a3.35 3.35 0 0 0-.607-.541c-.013.076-.026.175-.041.254-.93 4.778-4.005 7.201-9.138 7.201h-2.19a.563.563 0 0 0-.556.479l-1.187 7.527h-.506l-.24 1.516a.56.56 0 0 0 .554.647h3.882c.46 0 .85-.334.922-.788.06-.26.76-4.852.816-5.09a.932.932 0 0 1 .923-.788h.58c3.76 0 6.705-1.528 7.565-5.946.36-1.847.174-3.388-.777-4.471z"/>
@@ -346,10 +313,20 @@
                                     PayPal
                                 </button>
                             </div>
-                            <input type="hidden" id="payment_method" name="payment_method" value="stripe">
+                            <input type="hidden" id="payment_method" name="payment_method" value="{{ $defaultPaymentMethod }}">
+
+                            @if($canAcceptIkhokhaPayments)
+                            <div id="ikhokha-payment" class="space-y-3">
+                                <div class="rounded-lg border border-emerald-100 bg-emerald-50 p-4">
+                                    <p class="font-medium text-emerald-950">Pay securely with iKhokha</p>
+                                    <p class="mt-1 text-sm text-emerald-800">You will continue to iKhokha's secure payment page. Your card details are never stored by this shop.</p>
+                                </div>
+                            </div>
+                            @endif
 
                             <!-- Stripe Payment Form -->
-                            <div id="stripe-payment" class="space-y-3">
+                            @if($canAcceptStripePayments)
+                            <div id="stripe-payment" class="space-y-3 {{ $defaultPaymentMethod !== 'stripe' ? 'hidden' : '' }}">
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 mb-1.5">Card Details</label>
                                     <div
@@ -372,6 +349,7 @@
                                     Your payment information is encrypted and secure
                                 </div>
                             </div>
+                            @endif
 
                             <!-- PayPal Payment -->
                             <div id="paypal-payment" class="hidden">
@@ -386,19 +364,26 @@
                     <button
                         type="submit"
                         id="submit-button"
+                        @disabled($total > 0 && ! $canAcceptCardPayments)
                         class="w-full bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-semibold py-4 px-6 rounded-xl transition-colors duration-200 flex items-center justify-center gap-2 text-base shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
                     >
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                         </svg>
-                        {{ $total > 0 ? 'Complete Purchase' : 'Complete Order' }}
+                        {{ $total > 0 && ! $canAcceptCardPayments ? 'Online payments unavailable' : ($total > 0 ? 'Complete Purchase' : 'Complete Order') }}
                     </button>
 
-                    <p class="text-center text-xs text-gray-500 mt-3">
-                        By placing your order, you agree to our
-                        <a href="#" class="text-indigo-600 hover:underline">Terms of Service</a> and
-                        <a href="#" class="text-indigo-600 hover:underline">Privacy Policy</a>.
-                    </p>
+                    @php($checkoutPolicies = \App\Models\Page::published()->whereIn('slug', ['terms-of-service', 'privacy-policy', 'delivery-policy', 'refund-policy'])->get())
+                    <div class="text-center text-xs text-gray-500 mt-3">
+                        @if($checkoutPolicies->isNotEmpty())
+                            <p>Please review our store policies before ordering:</p>
+                            @foreach($checkoutPolicies as $policy)
+                                <a href="{{ route('cms.pages.show', $policy->slug) }}" target="_blank" rel="noopener" class="mr-3 text-indigo-600 underline">{{ $policy->title }}</a>
+                            @endforeach
+                        @else
+                            <a href="{{ route('contact') }}" class="text-indigo-600 underline">Contact the store for delivery and order enquiries.</a>
+                        @endif
+                    </div>
                 </form>
             </div>
 
@@ -430,7 +415,7 @@
                                     <p class="text-xs text-gray-500 mt-0.5">Qty: {{ $item['quantity'] }}</p>
                                 </div>
                                 <span class="text-sm font-semibold text-gray-900 flex-shrink-0">
-                                    ${{ number_format($item['price'] * $item['quantity'], 2) }}
+                                    {{ \App\Support\StoreMoney::format($item['price'] * $item['quantity']) }}
                                 </span>
                             </div>
                         @endforeach
@@ -440,19 +425,22 @@
                     <div class="px-6 py-4 border-t border-gray-100 space-y-3">
                         <div class="flex justify-between text-sm text-gray-600">
                             <span>Subtotal</span>
-                            <span>${{ number_format($total, 2) }}</span>
+                            <span id="quote-subtotal">{{ \App\Support\StoreMoney::format($subtotal) }}</span>
                         </div>
 
                         @if($hasPhysicalProducts)
                             <div class="flex justify-between text-sm text-gray-600" id="shipping-cost">
                                 <span>Shipping</span>
-                                <span>$0.00</span>
+                                <span id="quote-shipping">Enter delivery details</span>
                             </div>
                         @endif
 
+                        <div class="flex justify-between text-sm text-gray-600"><span>Discount</span><span id="quote-discount">—</span></div>
+                        <div class="flex justify-between text-sm text-gray-600"><span>Tax</span><span id="quote-tax">—</span></div>
+                        <p id="quote-status" role="status" aria-live="polite" class="text-sm text-gray-600">Complete your delivery details to review the total before payment.</p>
                         <div class="flex justify-between text-base font-bold text-gray-900 pt-3 border-t border-gray-200">
                             <span>Total</span>
-                            <span id="total-amount">${{ number_format($total, 2) }}</span>
+                            <span id="total-amount">Awaiting calculation</span>
                         </div>
                     </div>
 
@@ -469,7 +457,7 @@
                                 <svg class="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
                                 </svg>
-                                Buyer Protection
+                                Order tracking
                             </div>
                         </div>
                     </div>
@@ -481,6 +469,7 @@
 
 @push('scripts')
 <script>
+    let checkoutQuotedTotal = null;
     document.addEventListener('DOMContentLoaded', function() {
         // Toggle drop shipping recipient info
         const dropshipCheckbox = document.getElementById('dropship');
@@ -495,120 +484,70 @@
             });
         }
 
-        // Update shipping cost when shipping method changes
-        const shippingMethodRadios = document.querySelectorAll('input[name="shipping_method_id"]');
-        const shippingCostElement = document.querySelector('#shipping-cost span');
-        const totalAmountElement = document.getElementById('total-amount');
-        const shippingCostInput = document.getElementById('shipping_cost_input');
-        let subtotal = {{ $total }};
-
-        function updateShippingDisplay(rate) {
-            if (shippingCostElement) {
-                shippingCostElement.textContent = '$' + rate.toFixed(2);
-            }
-            if (shippingCostInput) {
-                shippingCostInput.value = rate.toFixed(2);
-            }
-            if (totalAmountElement) {
-                const total = subtotal + rate;
-                totalAmountElement.textContent = '$' + total.toFixed(2);
+        const checkoutForm = document.getElementById('checkout-form');
+        const quoteStatus = document.getElementById('quote-status');
+        let quoteReady = false;
+        let requestVersion = 0;
+        let quoteTimer;
+        async function updateQuote(version) {
+            if (version !== requestVersion) return;
+            try {
+                const response = await fetch(@json(route('checkout.quote')), {
+                    method: 'POST', body: new FormData(checkoutForm), headers: { Accept: 'application/json' }
+                });
+                const quote = await response.json();
+                if (version !== requestVersion) return;
+                if (!response.ok) {
+                    quoteStatus.textContent = Object.values(quote.errors || {}).flat().join(' ') || 'Unable to calculate delivery. Please check your details.';
+                    return;
+                }
+                const format = value => quote.currency + ' ' + Number(value).toLocaleString('en-ZA', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                for (const key of ['subtotal', 'shipping', 'discount', 'tax']) {
+                    const element = document.getElementById('quote-' + key);
+                    if (element) element.textContent = format(quote[key]);
+                }
+                document.getElementById('total-amount').textContent = format(quote.total);
+                checkoutQuotedTotal = quote.total;
+                const purchaseButton = document.getElementById('submit-button');
+                const paymentsUnavailable = quote.total > 0 && ! @json($canAcceptCardPayments);
+                purchaseButton.disabled = paymentsUnavailable;
+                purchaseButton.textContent = paymentsUnavailable ? 'Online payments unavailable' : (quote.total > 0 ? 'Complete Purchase' : 'Complete Order');
+                quoteStatus.textContent = 'Review your total above before continuing to payment.';
+                quoteReady = true;
+            } catch (error) {
+                if (version === requestVersion) quoteStatus.textContent = 'Unable to refresh the total. Check your connection and try again.';
             }
         }
-
-        shippingMethodRadios.forEach(function(radio) {
-            radio.addEventListener('change', function() {
-                const shippingRate = parseFloat(this.dataset.baseRate) || 0;
-                updateShippingDisplay(shippingRate);
-            });
+        function scheduleQuote() {
+            quoteReady = false;
+            const version = ++requestVersion;
+            clearTimeout(quoteTimer);
+            document.getElementById('total-amount').textContent = 'Updating…';
+            quoteStatus.textContent = 'Calculating your order total…';
+            quoteTimer = setTimeout(() => updateQuote(version), 500);
+        }
+        checkoutForm.querySelectorAll('[name^="shipping_"], [name^="delivery_"], [name="dropship"]').forEach(input => {
+            input.addEventListener('input', scheduleQuote);
+            input.addEventListener('change', scheduleQuote);
         });
-
-        // Set initial shipping cost from checked radio
-        const checkedRadio = document.querySelector('input[name="shipping_method_id"]:checked');
-        if (checkedRadio) {
-            updateShippingDisplay(parseFloat(checkedRadio.dataset.baseRate) || 0);
-        }
-
-        // Live carrier rates: fetch server-persisted quotes; the buyer selects one by id
-        // (posted as shipping_quote_id, the server bills the stored amount).
-        const liveRatesBtn = document.getElementById('get-live-rates');
-        const liveRatesContainer = document.getElementById('live-rates-container');
-        const liveRatesStatus = document.getElementById('live-rates-status');
-        const csrfToken = document.querySelector('input[name="_token"]')?.value;
-
-        function setStatus(text) {
-            liveRatesStatus.textContent = text;
-            liveRatesStatus.classList.toggle('hidden', !text);
-        }
-
-        // Choosing a flat method clears any live selection — an order ships on one source.
-        shippingMethodRadios.forEach(function (radio) {
-            radio.addEventListener('change', function () {
-                liveRatesContainer.querySelectorAll('input[name="shipping_quote_id"]').forEach(function (r) { r.checked = false; });
-            });
-        });
-
-        if (liveRatesBtn) {
-            liveRatesBtn.addEventListener('click', function () {
-                const country = document.getElementById('country')?.value;
-                if (!country) { setStatus('Enter your country first.'); return; }
-                setStatus('Fetching rates…');
-
-                fetch('{{ route('checkout.shipping-rates') }}', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': csrfToken },
-                    body: JSON.stringify({
-                        country: country,
-                        state: document.getElementById('state')?.value || null,
-                        city: document.getElementById('city')?.value || null,
-                        postal_code: document.getElementById('postal_code')?.value || null,
-                    }),
-                })
-                .then(function (r) { return r.json(); })
-                .then(function (data) {
-                    liveRatesContainer.innerHTML = '';
-                    const rates = (data && data.rates) || [];
-                    if (!rates.length) { setStatus('No live rates available — using the methods above.'); return; }
-                    setStatus('');
-                    rates.forEach(function (rate) {
-                        const label = document.createElement('label');
-                        label.className = 'flex items-center justify-between p-4 border border-gray-200 rounded-lg cursor-pointer hover:border-indigo-300 has-[:checked]:border-indigo-500 has-[:checked]:bg-indigo-50';
-                        const days = rate.delivery_days ? (' · ' + rate.delivery_days + ' day(s)') : '';
-                        const input = document.createElement('input');
-                        input.type = 'radio';
-                        input.name = 'shipping_quote_id';
-                        input.value = rate.id;
-                        input.className = 'h-4 w-4 text-indigo-600';
-                        input.dataset.amount = rate.amount;
-                        input.addEventListener('change', function () {
-                            shippingMethodRadios.forEach(function (fr) { fr.checked = false; });
-                            updateShippingDisplay(parseFloat(this.dataset.amount) || 0);
-                        });
-                        const left = document.createElement('span');
-                        left.className = 'flex items-center';
-                        const name = document.createElement('span');
-                        name.className = 'ml-3 text-sm font-medium text-gray-900';
-                        name.textContent = rate.carrier + ' ' + rate.service + days;
-                        left.appendChild(input);
-                        left.appendChild(name);
-                        const price = document.createElement('span');
-                        price.className = 'text-sm font-semibold text-gray-900';
-                        price.textContent = '$' + Number(rate.amount).toFixed(2);
-                        label.appendChild(left);
-                        label.appendChild(price);
-                        liveRatesContainer.appendChild(label);
-                    });
-                })
-                .catch(function () { setStatus('Could not fetch live rates — using the methods above.'); });
-            });
-        }
+        checkoutForm.addEventListener('submit', event => {
+            if (!quoteReady) {
+                event.preventDefault();
+                event.stopImmediatePropagation();
+                quoteStatus.textContent = 'Please complete your delivery details and wait for the total before paying.';
+                scheduleQuote();
+            }
+        }, true);
+        scheduleQuote();
     });
 
     // Payment method tab switching
     const TAB_ACTIVE_CLASSES = ['bg-white', 'shadow-sm', 'text-gray-900', 'border', 'border-gray-200'];
     const TAB_INACTIVE_CLASSES = ['text-gray-500', 'hover:text-gray-700'];
-    const paymentPanels = { stripe: 'stripe-payment', paypal: 'paypal-payment' };
+    const paymentPanels = { ikhokha: 'ikhokha-payment', stripe: 'stripe-payment' };
 
     function selectPaymentMethod(method) {
+        if (!document.getElementById('payment_method')) return;
         document.getElementById('payment_method').value = method;
 
         Object.keys(paymentPanels).forEach(function(key) {
@@ -625,12 +564,11 @@
     }
 
     // Initialize payment method tabs
-    selectPaymentMethod('stripe');
+    selectPaymentMethod(@json($defaultPaymentMethod));
 </script>
 
-@if($total > 0)
+@if($total > 0 && $canAcceptStripePayments)
 <script src="https://js.stripe.com/v3/"></script>
-<script src="https://www.paypal.com/sdk/js?client-id={{ config('services.paypal.client_id') }}&currency=USD"></script>
 <script>
     // Stripe integration
     const stripe = Stripe('{{ config('services.stripe.key') }}');
@@ -688,7 +626,7 @@
     }
 
     form.addEventListener('submit', async (event) => {
-        if (paymentMethodInput.value === 'stripe') {
+        if (paymentMethodInput.value === 'stripe' && checkoutQuotedTotal > 0) {
             event.preventDefault();
             setButtonLoading(true);
 
@@ -711,28 +649,9 @@
         }
     });
 
-    // PayPal integration
-    if (document.getElementById('paypal-button-container')) {
-        paypal.Buttons({
-            createOrder: function(data, actions) {
-                return actions.order.create({
-                    purchase_units: [{
-                        amount: {
-                            value: document.getElementById('total-amount').textContent.replace('$', '')
-                        }
-                    }]
-                });
-            },
-            onApprove: function(data, actions) {
-                return actions.order.capture().then(function(details) {
-                    document.getElementById('paypal_payment_id').value = details.id;
-                    form.submit();
-                });
-            }
-        }).render('#paypal-button-container');
-    }
 </script>
 @endif
+@include('checkout.delivery-windows-script')
 @endpush
 @endsection
 

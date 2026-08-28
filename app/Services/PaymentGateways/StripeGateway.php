@@ -2,10 +2,12 @@
 
 namespace App\Services\PaymentGateways;
 
-use Exception;
 use App\Interfaces\PaymentGatewayInterface;
-use Stripe\StripeClient;
+use App\Support\StoreMoney;
+use Exception;
 use Illuminate\Support\Facades\Config;
+use Stripe\Exception\CardException;
+use Stripe\StripeClient;
 
 class StripeGateway implements PaymentGatewayInterface
 {
@@ -20,27 +22,29 @@ class StripeGateway implements PaymentGatewayInterface
     {
         try {
             $charge = $this->stripeClient->charges->create([
-                'amount' => $amount * 100, // Stripe expects amount in cents
-                'currency' => 'usd',
+                'amount' => (int) round($amount * 100),
+                'currency' => strtolower($paymentDetails['currency'] ?? StoreMoney::currency()),
                 'source' => $paymentDetails['token'],
                 'description' => 'Payment transaction',
-            ]);
+            ], isset($paymentDetails['order_id']) ? ['idempotency_key' => 'store-order-'.$paymentDetails['order_id']] : []);
 
             if ($charge->status === 'succeeded') {
                 return ['success' => true, 'transaction_id' => $charge->id];
             }
 
-            return ['success' => false, 'error' => 'Payment failed'];
+            return ['success' => false, 'error' => 'Payment failed', 'definitive_failure' => true];
         } catch (Exception $e) {
-            return ['success' => false, 'error' => $e->getMessage()];
+            return ['success' => false, 'error' => 'Payment could not be confirmed. Please check your order before trying again.',
+                'definitive_failure' => $e instanceof CardException];
         }
     }
 
     public function processSubscription(string $planId, array $subscriptionDetails): array
     {
-        // Implement Stripe subscription logic here
-        // This is a placeholder implementation
-        return ['success' => true, 'subscription_id' => 'stripe_sub_' . uniqid()];
+        return [
+            'success' => false,
+            'error' => 'Stripe subscriptions are not configured for this store.',
+        ];
     }
 
     public function refundPayment(string $transactionId, float $amount): array

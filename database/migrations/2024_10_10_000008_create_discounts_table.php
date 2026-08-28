@@ -11,10 +11,7 @@ return new class extends Migration
         Schema::create('discounts', function (Blueprint $table) {
             $table->id();
             $table->string('title');
-            // Unique per team rather than per installation — see the coupons
-            // table for the same correction. The composite is added in
-            // 2026_08_09_000002, once `team_id` exists.
-            $table->string('code')->nullable();
+            $table->string('code')->nullable()->unique();
             $table->text('description')->nullable();
             $table->enum('type', ['percentage', 'fixed_amount', 'free_shipping', 'buy_x_get_y']);
             $table->decimal('value', 10, 2);

@@ -2,39 +2,34 @@
 
 namespace App\Filament\Admin\Resources\Categories;
 
+use App\Filament\Admin\Resources\Categories\Pages\CreateCategory;
+use App\Filament\Admin\Resources\Categories\Pages\EditCategory;
+use App\Filament\Admin\Resources\Categories\Pages\ListCategories;
+use App\Models\ProductCategory;
+use Filament\Actions\BulkActionGroup;
+use Filament\Actions\DeleteAction;
+use Filament\Actions\DeleteBulkAction;
+use Filament\Actions\EditAction;
+use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\RichEditor;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\TextInput;
+use Filament\Resources\Resource;
+use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
-use Filament\Schemas\Components\Section;
-use Filament\Forms\Components\TextInput;
-use Filament\Forms\Components\RichEditor;
-use Filament\Forms\Components\Select;
 use Filament\Tables\Columns\TextColumn;
-use Filament\Actions\EditAction;
-use Filament\Actions\DeleteAction;
-use Filament\Actions\BulkActionGroup;
-use Filament\Actions\DeleteBulkAction;
-use App\Filament\Admin\Resources\Categories\Pages\ListCategories;
-use App\Filament\Admin\Resources\Categories\Pages\CreateCategory;
-use App\Filament\Admin\Resources\Categories\Pages\EditCategory;
-use App\Filament\Admin\Resources\CategoryResource\Pages;
-use App\Filament\Admin\Resources\CategoryResource\RelationManagers;
-use App\Models\ProductCategory;
-use Filament\Forms;
-use Filament\Resources\Resource;
-use Filament\Tables;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Illuminate\Support\Str;
 
 class CategoryResource extends Resource
 {
     protected static ?string $model = ProductCategory::class;
 
-    protected static string | \BackedEnum | null $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-rectangle-stack';
 
-    protected static ?string $modelLabel = "Category";
+    protected static ?string $modelLabel = 'Category';
 
     protected static ?int $navigationSort = 3;
 
@@ -65,9 +60,14 @@ class CategoryResource extends Resource
                             ->unique(ignoreRecord: true)
                             ->maxLength(255),
                         RichEditor::make('description'),
+                        FileUpload::make('image')
+                            ->image()
+                            ->disk('public')
+                            ->directory('cms/categories')
+                            ->visibility('public'),
                         Select::make('parent_category_id')
                             ->relationship('parent', 'name'),
-                    ])
+                    ]),
             ]);
     }
 
@@ -82,7 +82,7 @@ class CategoryResource extends Resource
                 TextColumn::make('parent.name'),
                 TextColumn::make('products_count')
                     ->counts('products')
-                    ->label(__('Total Products'))
+                    ->label(__('Total Products')),
             ])
             ->filters([
                 //

@@ -16,10 +16,14 @@ class ReturnRequestItem extends Model
         'quantity',
         'condition',
         'notes',
+        'product_name_snapshot',
+        'received_quantity',
+        'disposition',
     ];
 
     protected $casts = [
         'quantity' => 'integer',
+        'received_quantity' => 'integer',
     ];
 
     public function returnRequest(): BelongsTo

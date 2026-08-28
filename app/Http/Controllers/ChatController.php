@@ -4,212 +4,74 @@ namespace App\Http\Controllers;
 
 use App\Models\ChatConversation;
 use App\Services\ChatService;
+use App\Services\CustomerChatService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 
 class ChatController extends Controller
 {
-    protected ChatService $chatService;
+    public function __construct(private CustomerChatService $chat) {}
 
-    public function __construct(ChatService $chatService)
-    {
-        $this->chatService = $chatService;
-    }
-
-    /**
-     * A conversation is addressable by its sequential id, so the customer-facing
-     * endpoints must prove ownership: either the caller is an agent, or the
-     * conversation's (unguessable) session_id was bound to this browser session
-     * when the chat was started. Otherwise a stranger could enumerate ids and read
-     * everyone's chat history + PII.
-     */
-    private function authorizeConversationAccess(ChatConversation $conversation): void
-    {
-        $isAgent = Auth::check() && Auth::user()->hasRole(['super_admin', 'admin']);
-        $ownsSession = in_array($conversation->session_id, session('chat_conversations', []), true);
-
-        abort_unless($isAgent || $ownsSession, 403);
-    }
-
-    /**
-     * Start a new chat conversation.
-     */
     public function start(Request $request)
     {
-        $validated = $request->validate([
-            'customer_name' => 'nullable|string|max:255',
-            'customer_email' => 'nullable|email|max:255',
-        ]);
-
-        $conversation = $this->chatService->createConversation($validated);
-
-        // Bind this conversation to the browser session so its later message/read
-        // calls (addressed by sequential id) can be authorized.
-        session()->push('chat_conversations', $conversation->session_id);
-
-        return response()->json([
-            'success' => true,
-            'conversation' => $conversation,
-        ]);
+        return response()->json(['success' => true, 'conversation' => $this->chat->data($this->chat->start($request->all()))]);
     }
 
-    /**
-     * Send a message in a conversation.
-     */
-    public function sendMessage(Request $request, $conversationId)
+    public function sendMessage(Request $request, int $conversationId)
     {
-        $validated = $request->validate([
-            'message' => 'required|string|max:5000',
-        ]);
+        $this->chat->authorize($conversationId);
+        $data = $request->validate(['message' => 'required|string|max:5000']);
+        $message = $this->chat->send($conversationId, $data['message']);
 
-        $conversation = ChatConversation::find($conversationId);
-        if (! $conversation) {
-            return response()->json(['error' => 'Conversation not found'], 404);
-        }
-        $this->authorizeConversationAccess($conversation);
-
-        $message = $this->chatService->addMessage($conversationId, [
-            'message' => $validated['message'],
-            'sender_type' => Auth::check() && Auth::user()->hasRole(['super_admin', 'admin']) ? 'agent' : 'customer',
-        ]);
-
-        return response()->json([
-            'success' => true,
-            'message' => $message,
-        ]);
+        return response()->json(['success' => true, 'message' => $message->only(['id', 'message', 'sender_type', 'created_at'])]);
     }
 
-    /**
-     * Get conversation messages.
-     */
-    public function getMessages($conversationId)
+    public function getMessages(int $conversationId)
     {
-        $conversation = $this->chatService->getConversation($conversationId);
+        $conversation = $this->chat->authorize($conversationId);
 
-        if (! $conversation) {
-            return response()->json(['error' => 'Conversation not found'], 404);
+        return response()->json(['success' => true, 'conversation' => $this->chat->data($conversation)]);
+    }
+
+    public function getBySession(string $sessionId)
+    {
+        $conversation = ChatConversation::where('session_id', $sessionId)->first();
+        if ($conversation) {
+            $this->chat->authorize($conversation->id);
         }
 
-        $this->authorizeConversationAccess($conversation);
-
-        // Mark messages as read
-        $readerType = Auth::check() && Auth::user()->hasRole(['super_admin', 'admin']) ? 'agent' : 'customer';
-        $this->chatService->markMessagesAsRead($conversationId, $readerType);
-
-        return response()->json([
-            'success' => true,
-            'conversation' => $conversation,
-        ]);
+        return response()->json(['success' => true, 'conversation' => $conversation ? $this->chat->data($conversation) : null]);
     }
 
-    /**
-     * Get conversation by session ID.
-     */
-    public function getBySession($sessionId)
+    public function close(int $conversationId)
     {
-        $conversation = $this->chatService->getConversationBySession($sessionId);
-
-        return response()->json([
-            'success' => true,
-            'conversation' => $conversation,
-        ]);
+        return response()->json(['success' => true, 'conversation' => $this->chat->data($this->chat->close($conversationId))]);
     }
 
-    /**
-     * Close a conversation.
-     */
-    public function close($conversationId)
+    public function submitRating(Request $request, int $conversationId)
     {
-        $conversation = ChatConversation::find($conversationId);
-        if (! $conversation) {
-            return response()->json(['error' => 'Conversation not found'], 404);
-        }
-        $this->authorizeConversationAccess($conversation);
+        $this->chat->rate($conversationId, $request->all());
 
-        $conversation = $this->chatService->closeConversation($conversationId);
-
-        return response()->json([
-            'success' => true,
-            'conversation' => $conversation,
-        ]);
+        return response()->json(['success' => true, 'message' => 'Thank you for your feedback!']);
     }
 
-    /**
-     * Submit satisfaction rating.
-     */
-    public function submitRating(Request $request, $conversationId)
-    {
-        $validated = $request->validate([
-            'rating' => 'required|integer|min:1|max:5',
-            'feedback' => 'nullable|string|max:1000',
-        ]);
-
-        $conversation = ChatConversation::find($conversationId);
-        if (! $conversation) {
-            return response()->json(['error' => 'Conversation not found'], 404);
-        }
-        $this->authorizeConversationAccess($conversation);
-
-        $this->chatService->addSatisfactionRating(
-            $conversationId,
-            $validated['rating'],
-            $validated['feedback'] ?? null
-        );
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Thank you for your feedback!',
-        ]);
-    }
-
-    /**
-     * Get agent's active conversations (for agent dashboard).
-     */
     public function agentConversations()
     {
-        if (! Auth::check() || ! Auth::user()->hasRole(['super_admin', 'admin'])) {
-            return response()->json(['error' => 'Unauthorized'], 403);
-        }
+        abort_unless($this->chat->isStaff(), 403);
 
-        $conversations = $this->chatService->getAgentConversations(Auth::id());
-
-        return response()->json([
-            'success' => true,
-            'conversations' => $conversations,
-        ]);
+        return response()->json(['success' => true, 'conversations' => app(ChatService::class)->getAgentConversations(auth()->id())]);
     }
 
-    /**
-     * Assign agent to a conversation.
-     */
-    public function assignAgent(Request $request, $conversationId)
+    public function assignAgent(int $conversationId)
     {
-        if (! Auth::check() || ! Auth::user()->hasRole(['super_admin', 'admin'])) {
-            return response()->json(['error' => 'Unauthorized'], 403);
-        }
+        abort_unless($this->chat->isStaff(), 403);
 
-        $conversation = $this->chatService->assignAgent($conversationId, Auth::id());
-
-        return response()->json([
-            'success' => true,
-            'conversation' => $conversation,
-        ]);
+        return response()->json(['success' => true, 'conversation' => app(ChatService::class)->assignAgent($conversationId, auth()->id())]);
     }
 
-    /**
-     * Get next queued conversation.
-     */
     public function nextQueued()
     {
-        if (! Auth::check() || ! Auth::user()->hasRole(['super_admin', 'admin'])) {
-            return response()->json(['error' => 'Unauthorized'], 403);
-        }
+        abort_unless($this->chat->isStaff(), 403);
 
-        $conversation = $this->chatService->getNextQueuedConversation();
-
-        return response()->json([
-            'success' => true,
-            'conversation' => $conversation,
-        ]);
+        return response()->json(['success' => true, 'conversation' => app(ChatService::class)->getNextQueuedConversation()]);
     }
 }

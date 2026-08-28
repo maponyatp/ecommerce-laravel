@@ -3,26 +3,20 @@
 namespace App\Models;
 
 use App\Interfaces\Orderable;
-use App\Jobs\RemoveProductFromFacebookCatalog;
-use App\Jobs\SyncProductToFacebookCatalog;
-use App\Notifications\ProductBackInStockNotification;
-use App\Services\TaxCalculator;
-use App\Traits\IsStoreScoped;
+use App\Support\StoreMoney;
 use App\Traits\IsTenantModel;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 class Product extends Model implements Orderable
 {
     use HasFactory;
-    use IsStoreScoped;
     use IsTenantModel;
     use SoftDeletes;
 
@@ -39,7 +33,6 @@ class Product extends Model implements Orderable
         'featured_image',
         'inventory_count',
         'low_stock_threshold',
-        'weight',
         'meta_title',
         'meta_description',
         'meta_keywords',
@@ -51,19 +44,12 @@ class Product extends Model implements Orderable
         'suggested_price',
         'minimum_price',
         'is_featured',
-        'list_on_facebook',
-
-        // Fillable so the API write paths can stamp the creating admin's team.
-        // No validator accepts it from request input, so it cannot be set by a
-        // caller — see Api\Concerns\OwnsTeamResources.
-        'team_id',
     ];
 
     protected $casts = [
+        'has_variants' => 'boolean',
         'is_downloadable' => 'boolean',
-        'list_on_facebook' => 'boolean',
         'price' => 'decimal:2',
-        'weight' => 'decimal:2',
         'suggested_price' => 'decimal:2',
         'minimum_price' => 'decimal:2',
     ];
@@ -95,8 +81,18 @@ class Product extends Model implements Orderable
 
     public function getImageUrlAttribute()
     {
-        return $this->featured_image;
-        // return asset(Storage::url($this->featured_image));
+        $path = $this->featured_image;
+        if (! $path) {
+            return asset('images/product-placeholder.svg');
+        }
+        if (Str::startsWith($path, ['https://', 'http://'])) {
+            return $path;
+        }
+        if (Str::startsWith(ltrim($path, '/'), ['storage/', 'images/'])) {
+            return asset(ltrim($path, '/'));
+        }
+
+        return Storage::disk('public')->url($path);
     }
 
     public function cartItems()
@@ -129,6 +125,21 @@ class Product extends Model implements Orderable
         return $this->hasMany(ProductVariant::class);
     }
 
+    public function purchasableVariants()
+    {
+        return $this->variants()->where('active', true)->where('currency', StoreMoney::currency())->orderBy('position')->orderBy('id');
+    }
+
+    public function getStorePriceLabelAttribute(): string
+    {
+        if (! $this->has_variants) {
+            return StoreMoney::format($this->price);
+        }
+        $price = $this->purchasableVariants()->min('price');
+
+        return $price === null ? 'Options unavailable' : 'From '.StoreMoney::format($price);
+    }
+
     public function options()
     {
         return $this->hasMany(ProductOption::class)->orderBy('position');
@@ -137,6 +148,11 @@ class Product extends Model implements Orderable
     public function inventoryItems()
     {
         return $this->hasMany(InventoryItem::class);
+    }
+
+    public function seoSettings()
+    {
+        return $this->morphOne(SeoSetting::class, 'seoable');
     }
 
     public function analyticsEvents()
@@ -184,18 +200,6 @@ class Product extends Model implements Orderable
         return $this->is_downloadable && $this->downloadable()->exists();
     }
 
-    /**
-     * Catalogue display price — tax-inclusive when the store is configured to
-     * show prices with tax, otherwise the bare price. Delegates to TaxCalculator.
-     *
-     * ponytail: resolves the calculator per call; fine for a product page, batch
-     * it (one rate lookup for the list) if a big catalogue index gets slow.
-     */
-    public function displayPrice(): float
-    {
-        return app(TaxCalculator::class)->displayPrice($this);
-    }
-
     protected static function booted(): void
     {
         static::creating(function ($product) {
@@ -206,6 +210,9 @@ class Product extends Model implements Orderable
         });
 
         static::updating(function ($product) {
+            if ($product->has_variants && ($product->is_downloadable || ($product->pricing_type && $product->pricing_type !== 'fixed'))) {
+                throw ValidationException::withMessages(['pricing_type' => 'Published variants require a fixed-price physical product. Create a separate product for a different selling model.']);
+            }
             // Update slug if name changed and slug not manually set
             if ($product->isDirty('name') && ! $product->isDirty('slug')) {
                 $product->slug = Str::slug($product->name);
@@ -224,72 +231,6 @@ class Product extends Model implements Orderable
                 );
             }
         });
-
-        // Fire back-in-stock notifications when inventory crosses 0 -> positive.
-        // `updated` (not `saved`) so increment()/decrement() — the admin & refund
-        // restock paths — are caught alongside plain save()/update().
-        static::updated(function ($product) {
-            if ($product->wasChanged('inventory_count')
-                && (int) $product->getOriginal('inventory_count') <= 0
-                && $product->inventory_count > 0) {
-                $product->notifyBackInStockSubscribers();
-            }
-        });
-
-        static::saved(function ($product) {
-            if ($product->list_on_facebook) {
-                SyncProductToFacebookCatalog::dispatch($product->id);
-            } elseif ($product->wasChanged('list_on_facebook')) {
-                $product->dispatchFacebookUnlist();
-            }
-        });
-
-        // `deleting`, not `deleted`: the retailer ids have to be read before a
-        // force delete cascades the listing rows away.
-        static::deleting(function ($product) {
-            $product->dispatchFacebookUnlist();
-        });
-    }
-
-    public function facebookListings(): HasMany
-    {
-        return $this->hasMany(ProductFacebookListing::class);
-    }
-
-    /** Queue removal of whatever this Product currently occupies in the Catalog. */
-    public function dispatchFacebookUnlist(): void
-    {
-        $retailerIds = $this->facebookListings()->pluck('retailer_id')->all();
-
-        if ($retailerIds !== [] && $this->team_id !== null) {
-            RemoveProductFromFacebookCatalog::dispatch($retailerIds, (int) $this->team_id);
-        }
-    }
-
-    /**
-     * Email everyone waiting on this product's restock, then mark them notified
-     * so they're told once. Logged-in subscribers go through their User; guests
-     * get an on-demand email.
-     *
-     * ponytail: synchronous loop — fine for typical waitlists; push to a queued
-     * job if a single product ever has thousands of subscribers.
-     */
-    public function notifyBackInStockSubscribers(): void
-    {
-        $pending = StockNotification::getPendingForProduct($this->id)
-            ->where('notification_type', 'back_in_stock');
-
-        foreach ($pending as $subscriber) {
-            $notification = new ProductBackInStockNotification($this, $subscriber->variant);
-
-            if ($subscriber->user_id && $subscriber->user) {
-                $subscriber->user->notify($notification);
-            } elseif ($subscriber->email) {
-                Notification::route('mail', $subscriber->email)->notify($notification);
-            }
-
-            $subscriber->markAsNotified();
-        }
     }
 
     public function scopeWithTag($query, Tag $tag)
@@ -331,12 +272,22 @@ class Product extends Model implements Orderable
 
     public function scopePriceMin(Builder $query, $min): void
     {
-        $query->where('price', '>=', (float) $min);
+        $query->whereRaw(static::storePriceSql().' >= CAST(? AS DECIMAL(12,2))', [StoreMoney::currency(), (float) $min]);
     }
 
     public function scopePriceMax(Builder $query, $max): void
     {
-        $query->where('price', '<=', (float) $max);
+        $query->whereRaw(static::storePriceSql().' <= CAST(? AS DECIMAL(12,2))', [StoreMoney::currency(), (float) $max]);
+    }
+
+    public static function storePriceSql(): string
+    {
+        return '(CASE WHEN products.has_variants = 1 THEN (SELECT MIN(pv.price) FROM product_variants pv WHERE pv.product_id = products.id AND pv.active = 1 AND pv.currency = ?) ELSE products.price END)';
+    }
+
+    public function scopeOrderByStorePrice(Builder $query, bool $descending = false): void
+    {
+        $query->orderByRaw(static::storePriceSql().($descending ? ' DESC' : ' ASC'), [StoreMoney::currency()]);
     }
 
     public function isLowStock()
@@ -413,55 +364,5 @@ class Product extends Model implements Orderable
     public function getTotalReviews(): int
     {
         return $this->review()->count();
-    }
-
-    public function team()
-    {
-        return $this->belongsTo(Team::class);
-    }
-
-    /**
-     * Atomically adjust stock by $delta (positive to add, negative to remove) and
-     * record a reconcilable old/new InventoryLog row. A decrease is a guarded atomic
-     * decrement — it only succeeds while enough stock remains, so concurrent
-     * adjustments (or an adjustment racing a checkout decrement) can neither lose an
-     * update nor drive the count negative. Returns false if the decrease was refused.
-     */
-    public function adjustInventory(int $delta, string $reason): bool
-    {
-        $adjusted = (bool) DB::transaction(function () use ($delta, $reason) {
-            if ($delta < 0) {
-                $affected = static::whereKey($this->getKey())
-                    ->where('inventory_count', '>=', abs($delta))
-                    ->decrement('inventory_count', abs($delta));
-
-                if ($affected === 0) {
-                    return false;
-                }
-            } else {
-                $this->increment('inventory_count', $delta);
-            }
-
-            $this->refresh();
-
-            InventoryLog::create([
-                'product_id' => $this->id,
-                'quantity_change' => $delta,
-                'old_quantity' => $this->inventory_count - $delta,
-                'new_quantity' => $this->inventory_count,
-                'reason' => $reason,
-            ]);
-
-            return true;
-        });
-
-        // increment()/decrement() bypass `saved`, so the Catalog push that a
-        // plain save() would have queued has to be queued here. Selling out is
-        // an availability flip, never an unlist.
-        if ($adjusted && $this->list_on_facebook) {
-            SyncProductToFacebookCatalog::dispatch($this->id);
-        }
-
-        return $adjusted;
     }
 }

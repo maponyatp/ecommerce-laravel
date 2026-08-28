@@ -2,11 +2,14 @@
 
 namespace Tests\Feature;
 
+use App\Models\InventoryLog;
 use App\Models\Product;
 use App\Models\ProductCategory;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
+use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
 
 class InventoryControllerTest extends TestCase
@@ -16,11 +19,11 @@ class InventoryControllerTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        // Stock adjustment is admin-only; these cover controller behaviour, so
-        // authenticate as an admin (authorization is covered in
-        // InventoryAdjustSecurityTest).
-        Role::findOrCreate('super_admin', 'web');
-        $this->actingAs(User::factory()->create()->assignRole('super_admin'));
+        $staff = User::factory()->create();
+        app(PermissionRegistrar::class)->setPermissionsTeamId(null);
+        $staff->assignRole(Role::firstOrCreate(['name' => 'admin', 'guard_name' => 'web']));
+        $staff->givePermissionTo(Permission::findOrCreate('update_product', 'web'));
+        $this->actingAs($staff);
     }
 
     private function makeProduct(array $overrides = []): Product
@@ -77,7 +80,7 @@ class InventoryControllerTest extends TestCase
             'reason' => 'test',
         ]);
 
-        $response->assertStatus(400);
+        $response->assertStatus(422);
         $this->assertEquals(5, $product->fresh()->inventory_count);
     }
 
@@ -141,5 +144,20 @@ class InventoryControllerTest extends TestCase
         ]);
 
         $response->assertStatus(422);
+    }
+
+    public function test_inventory_and_audit_roll_back_together(): void
+    {
+        $product = $this->makeProduct(['inventory_count' => 10]);
+        InventoryLog::creating(fn () => throw new \RuntimeException('Simulated audit failure'));
+        $this->postJson('/inventory/adjust', ['product_id' => $product->id, 'quantity_change' => 5, 'reason' => 'test'])->assertStatus(500);
+        $this->assertSame(10, $product->fresh()->inventory_count);
+    }
+
+    public function test_customers_cannot_adjust_stock(): void
+    {
+        $product = $this->makeProduct();
+        $this->actingAs(User::factory()->create())->postJson('/inventory/adjust', ['product_id' => $product->id, 'quantity_change' => 5, 'reason' => 'test'])->assertForbidden();
+        $this->assertSame(10, $product->fresh()->inventory_count);
     }
 }

@@ -2,13 +2,14 @@
 
 namespace App\Models;
 
+use App\Traits\IsTenantModel;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class CustomerMetric extends Model
 {
-    use HasFactory;
+    use HasFactory, IsTenantModel;
 
     protected $fillable = [
         'user_id',
@@ -49,21 +50,19 @@ class CustomerMetric extends Model
     public function recalculate(): void
     {
         $user = $this->user;
-        $orders = $user->orders()
-            ->whereIn('status', [Order::STATUS_PAID, Order::STATUS_COMPLETED])
-            ->get();
+        $orders = $user->orders()->where('status', 'completed')->get();
 
         $this->update([
             'total_orders' => $orders->count(),
-            'lifetime_value' => $orders->sum('total_amount'),
-            'average_order_value' => $orders->avg('total_amount') ?? 0,
+            'lifetime_value' => $orders->sum('total'),
+            'average_order_value' => $orders->avg('total') ?? 0,
             'total_items_purchased' => $orders->sum(function ($order) {
                 return $order->items->sum('quantity');
             }),
             'first_purchase_at' => $orders->min('created_at'),
             'last_purchase_at' => $orders->max('created_at'),
             'days_since_last_purchase' => $orders->max('created_at')
-                ? $orders->max('created_at')->diffInDays(now())
+                ? now()->diffInDays($orders->max('created_at'))
                 : null,
             'customer_segment' => $this->calculateSegment($orders),
             'retention_score' => $this->calculateRetentionScore($orders),

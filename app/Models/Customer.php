@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use App\Traits\IsStoreScoped;
 use App\Traits\IsTenantModel;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -10,13 +9,11 @@ use Illuminate\Database\Eloquent\Model;
 class Customer extends Model
 {
     use HasFactory;
-    use IsStoreScoped;
     use IsTenantModel;
 
     protected $table = 'customers';
 
     protected $fillable = [
-        'user_id',
         'first_name',
         'last_name',
         'email',
@@ -26,11 +23,6 @@ class Customer extends Model
         'state',
         'postal_code',
     ];
-
-    public function user()
-    {
-        return $this->belongsTo(User::class);
-    }
 
     public function orders()
     {
@@ -55,8 +47,8 @@ class Customer extends Model
     public function groups()
     {
         return $this->belongsToMany(CustomerGroup::class, 'customer_group_memberships')
-            ->withPivot(['joined_at', 'expires_at'])
-            ->withTimestamps();
+                    ->withPivot(['joined_at', 'expires_at'])
+                    ->withTimestamps();
     }
 
     public function abandonedCarts()
@@ -74,16 +66,12 @@ class Customer extends Model
         return $this->hasMany(AnalyticsEvent::class);
     }
 
-    /**
-     * The groups this customer is currently in.
-     *
-     * The live-membership predicate lives on `CustomerGroup` — see the docblock
-     * on `constrainToLiveMemberships()` for what the ungrouped `or` here used
-     * to return, which was other people's groups.
-     */
     public function getActiveGroupsAttribute()
     {
-        return CustomerGroup::constrainToLiveMemberships($this->groups())->get();
+        return $this->groups()
+                    ->wherePivot('expires_at', '>', now())
+                    ->orWherePivotNull('expires_at')
+                    ->get();
     }
 
     public function getTotalSpentAttribute(): float
@@ -104,10 +92,5 @@ class Customer extends Model
     public function isVip(): bool
     {
         return $this->total_spent >= 1000 || $this->order_count >= 10;
-    }
-
-    public function team()
-    {
-        return $this->belongsTo(Team::class);
     }
 }

@@ -101,11 +101,7 @@ return [
     |
     */
 
-    // throttle:10,1 bounds the unauthenticated Fortify actions (forgot-password,
-    // register, reset-password) that Fortify does NOT otherwise rate-limit — it only
-    // wires per-action limiters for login + two-factor. 10/min per IP is generous for
-    // real multi-step auth flows but stops email-bomb / user-enumeration / auto-signup.
-    'middleware' => ['web', 'throttle:10,1'],
+    'middleware' => ['web'],
 
     /*
     |--------------------------------------------------------------------------
@@ -119,7 +115,7 @@ return [
     */
 
     'limiters' => [
-        'login'      => 'login',
+        'login' => 'login',
         'two-factor' => 'two-factor',
     ],
 
@@ -150,11 +146,11 @@ return [
     'features' => [
         Features::registration(),
         Features::resetPasswords(),
-        // Features::emailVerification(),
+        Features::emailVerification(),
         Features::updateProfileInformation(),
         Features::updatePasswords(),
         Features::twoFactorAuthentication([
-            'confirm'         => true,
+            'confirm' => true,
             'confirmPassword' => true,
             // 'window' => 0,
         ]),

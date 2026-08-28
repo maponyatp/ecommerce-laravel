@@ -4,30 +4,24 @@ namespace Tests\Feature\Api;
 
 use App\Models\Product;
 use App\Models\ProductCategory;
-use App\Models\Team;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
-use Spatie\Permission\Models\Role;
+use Tests\Support\StoreApiStaff;
 use Tests\TestCase;
 
 class ProductApiTest extends TestCase
 {
     use RefreshDatabase;
+    use StoreApiStaff;
 
     private User $user;
 
     protected function setUp(): void
     {
         parent::setUp();
-        // Product write endpoints are admin-gated; the CRUD tests below act as an admin.
-        Role::findOrCreate('super_admin', 'web');
-        $this->user = User::factory()->create()->assignRole('super_admin');
-        // Products and collections carry team_id with a database default of 1,
-        // and the API writes are now ownership-checked (#939) — so the admin
-        // acting here has to be in team 1 for the rows these tests create to be
-        // theirs to edit.
-        Team::factory()->create(['id' => 1, 'user_id' => $this->user->id]);
+        $this->user = User::factory()->create();
+        $this->grantStoreApiStaff($this->user);
     }
 
     public function test_unauthenticated_cannot_list_products(): void
@@ -39,7 +33,7 @@ class ProductApiTest extends TestCase
 
     public function test_authenticated_can_list_products(): void
     {
-        Sanctum::actingAs($this->user);
+        Sanctum::actingAs($this->user, ['catalog:read', 'catalog:write']);
         Product::factory()->count(3)->create();
 
         $response = $this->getJson('/api/products');
@@ -50,7 +44,7 @@ class ProductApiTest extends TestCase
 
     public function test_products_are_paginated(): void
     {
-        Sanctum::actingAs($this->user);
+        Sanctum::actingAs($this->user, ['catalog:read', 'catalog:write']);
         Product::factory()->count(20)->create();
 
         $response = $this->getJson('/api/products?per_page=5');
@@ -61,7 +55,7 @@ class ProductApiTest extends TestCase
 
     public function test_can_filter_products_by_search(): void
     {
-        Sanctum::actingAs($this->user);
+        Sanctum::actingAs($this->user, ['catalog:read', 'catalog:write']);
         Product::factory()->create(['name' => 'Unique Widget Name']);
         Product::factory()->create(['name' => 'Other Product']);
 
@@ -75,7 +69,7 @@ class ProductApiTest extends TestCase
 
     public function test_can_create_product(): void
     {
-        Sanctum::actingAs($this->user);
+        Sanctum::actingAs($this->user, ['catalog:read', 'catalog:write']);
         $category = ProductCategory::factory()->create();
 
         $payload = [
@@ -95,7 +89,7 @@ class ProductApiTest extends TestCase
 
     public function test_can_get_product_by_id(): void
     {
-        Sanctum::actingAs($this->user);
+        Sanctum::actingAs($this->user, ['catalog:read', 'catalog:write']);
         $product = Product::factory()->create();
 
         $response = $this->getJson("/api/products/{$product->id}");
@@ -106,7 +100,7 @@ class ProductApiTest extends TestCase
 
     public function test_can_update_product(): void
     {
-        Sanctum::actingAs($this->user);
+        Sanctum::actingAs($this->user, ['catalog:read', 'catalog:write']);
         $product = Product::factory()->create(['name' => 'Old Name']);
 
         $response = $this->putJson("/api/products/{$product->id}", [
@@ -119,7 +113,7 @@ class ProductApiTest extends TestCase
 
     public function test_can_delete_product(): void
     {
-        Sanctum::actingAs($this->user);
+        Sanctum::actingAs($this->user, ['catalog:read', 'catalog:write']);
         $product = Product::factory()->create();
 
         $response = $this->deleteJson("/api/products/{$product->id}");
@@ -132,7 +126,7 @@ class ProductApiTest extends TestCase
 
     public function test_returns_404_for_nonexistent_product(): void
     {
-        Sanctum::actingAs($this->user);
+        Sanctum::actingAs($this->user, ['catalog:read', 'catalog:write']);
 
         $response = $this->getJson('/api/products/999999');
 

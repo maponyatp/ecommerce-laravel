@@ -7,18 +7,11 @@ use App\Models\Order;
 use App\Models\Refund;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Notification;
 use Tests\TestCase;
 
 class RefundModelTest extends TestCase
 {
     use RefreshDatabase;
-
-    protected function setUp(): void
-    {
-        parent::setUp();
-        Notification::fake();
-    }
 
     private function makeOrder(): Order
     {
@@ -34,6 +27,7 @@ class RefundModelTest extends TestCase
             'state' => 'IL',
             'postal_code' => '62701',
         ]);
+
         return Order::create([
             'customer_id' => $customer->id,
             'customer_email' => $user->email,
@@ -57,25 +51,23 @@ class RefundModelTest extends TestCase
         ], $overrides));
     }
 
-    public function test_process_changes_status_to_processed(): void
+    public function test_pending_refund_cannot_be_processed_without_gateway_confirmation(): void
     {
         $order = $this->makeOrder();
         $refund = $this->makeRefund($order);
 
-        $result = $refund->process();
-
-        $this->assertTrue($result);
-        $this->assertEquals('processed', $refund->fresh()->status);
+        $this->expectException(\LogicException::class);
+        $refund->process();
     }
 
-    public function test_process_sets_processed_at(): void
+    public function test_a_transaction_reference_alone_does_not_authorize_processing(): void
     {
         $order = $this->makeOrder();
         $refund = $this->makeRefund($order);
 
+        $refund->update(['transaction_id' => 'unverified-reference']);
+        $this->expectException(\LogicException::class);
         $refund->process();
-
-        $this->assertNotNull($refund->fresh()->processed_at);
     }
 
     public function test_process_returns_false_when_not_pending(): void
@@ -88,14 +80,19 @@ class RefundModelTest extends TestCase
         $this->assertFalse($result);
     }
 
-    public function test_process_increments_order_refund_total(): void
+    public function test_disabled_processing_leaves_refund_and_order_unchanged(): void
     {
         $order = $this->makeOrder();
         $refund = $this->makeRefund($order, ['amount' => 30.00]);
 
-        $refund->process();
-
-        $this->assertEquals(30.00, $order->fresh()->refund_total);
+        try {
+            $refund->process();
+            $this->fail('Unverified processing must be rejected.');
+        } catch (\LogicException) {
+            $this->assertEquals(0, $order->fresh()->refund_total);
+            $this->assertSame('pending', $refund->fresh()->status);
+            $this->assertNull($refund->fresh()->processed_at);
+        }
     }
 
     public function test_belongs_to_order(): void

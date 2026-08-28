@@ -9,6 +9,7 @@ class InventoryLog extends Model
     protected $table = 'inventory_logs';
 
     protected $fillable = [
+        'product_variant_id',
         'product_id',
         'quantity_change',
         'old_quantity',

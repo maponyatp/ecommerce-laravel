@@ -2,25 +2,28 @@
 
 namespace App\Filament\Admin\Pages;
 
-use Filament\Pages\Page;
-use App\Models\ChatConversation;
 use App\Models\ChatAnalytics;
+use App\Models\ChatConversation;
+use App\Services\CustomerChatService;
+use Filament\Pages\Page;
 use Illuminate\Support\Facades\Auth;
 
 class ChatAgentDashboard extends Page
 {
-    protected static string | \BackedEnum | null $navigationIcon = 'heroicon-o-chat-bubble-bottom-center-text';
+    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-chat-bubble-bottom-center-text';
 
     protected string $view = 'filament.admin.pages.chat-agent-dashboard';
 
-    protected static string | \UnitEnum | null $navigationGroup = 'Customer Support';
+    protected static string|\UnitEnum|null $navigationGroup = 'Customer Support';
 
     protected static ?string $navigationLabel = 'Agent Dashboard';
 
     protected static ?string $title = 'Chat Agent Dashboard';
 
     public $queuedConversations = [];
+
     public $activeConversations = [];
+
     public $stats = [];
 
     public function mount(): void
@@ -28,8 +31,14 @@ class ChatAgentDashboard extends Page
         $this->loadData();
     }
 
+    public static function canAccess(): bool
+    {
+        return app(CustomerChatService::class)->isStaff();
+    }
+
     public function loadData(): void
     {
+        abort_unless(static::canAccess(), 403);
         // Get queued conversations
         $this->queuedConversations = ChatConversation::where('status', 'queued')
             ->with(['customer'])
@@ -59,8 +68,9 @@ class ChatAgentDashboard extends Page
 
     public function assignToMe($conversationId): void
     {
+        abort_unless(static::canAccess(), 403);
         $conversation = ChatConversation::find($conversationId);
-        
+
         if ($conversation && $conversation->status === 'queued') {
             $conversation->update([
                 'agent_id' => Auth::id(),

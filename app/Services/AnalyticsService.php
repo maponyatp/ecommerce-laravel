@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Customer;
 use App\Models\Order;
 use App\Models\Product;
+use App\Support\StoreMoney;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -27,14 +28,13 @@ class AnalyticsService
         };
 
         $sales = Order::whereBetween('order_date', [$startDate, $endDate])
+            ->where('currency', StoreMoney::currency())
             ->where('payment_status', 'paid')
             ->select(
                 DB::raw("{$groupBy} as period"),
                 DB::raw('COUNT(*) as order_count'),
-                // Net of refunds: refunded orders keep payment_status='paid' and track
-                // the returned money in refund_total, so gross would overstate revenue.
-                DB::raw('SUM(total_amount - COALESCE(refund_total, 0)) as total_revenue'),
-                DB::raw('AVG(total_amount - COALESCE(refund_total, 0)) as avg_order_value')
+                DB::raw('SUM(total_amount) as total_revenue'),
+                DB::raw('AVG(total_amount) as avg_order_value')
             )
             ->groupBy('period')
             ->orderBy('period')
@@ -52,22 +52,22 @@ class AnalyticsService
         $endDate = $endDate ?? now();
 
         $orders = Order::whereBetween('order_date', [$startDate, $endDate])
+            ->where('currency', StoreMoney::currency())
             ->where('payment_status', 'paid');
 
-        // Net of refunds — see the note in getSalesTrends.
-        $totalRevenue = (float) $orders->sum(DB::raw('total_amount - COALESCE(refund_total, 0)'));
+        $totalRevenue = $orders->sum('total_amount');
         $orderCount = $orders->count();
         $avgOrderValue = $orderCount > 0 ? $totalRevenue / $orderCount : 0;
 
         // Compare with previous period
-        $previousPeriod = $startDate->diffInDays($endDate);
-        $previousStartDate = $startDate->copy()->subDays($previousPeriod);
-        $previousEndDate = $startDate->copy()->subDay();
+        $previousPeriod = $startDate->diffInSeconds($endDate);
+        $previousStartDate = $startDate->copy()->subSeconds($previousPeriod);
 
-        $previousOrders = Order::whereBetween('order_date', [$previousStartDate, $previousEndDate])
+        $previousOrders = Order::where('order_date', '>=', $previousStartDate)->where('order_date', '<', $startDate)
+            ->where('currency', StoreMoney::currency())
             ->where('payment_status', 'paid');
 
-        $previousRevenue = (float) $previousOrders->sum(DB::raw('total_amount - COALESCE(refund_total, 0)'));
+        $previousRevenue = $previousOrders->sum('total_amount');
         $previousOrderCount = $previousOrders->count();
 
         $revenueGrowth = $previousRevenue > 0
@@ -79,6 +79,10 @@ class AnalyticsService
             : 0;
 
         return [
+            'currency' => StoreMoney::currency(),
+            'excluded_currency_orders' => Order::whereBetween('order_date', [$startDate, $endDate])
+                ->where('payment_status', 'paid')
+                ->where(fn ($query) => $query->whereNull('currency')->orWhere('currency', '!=', StoreMoney::currency()))->count(),
             'total_revenue' => round($totalRevenue, 2),
             'order_count' => $orderCount,
             'avg_order_value' => round($avgOrderValue, 2),
@@ -99,6 +103,7 @@ class AnalyticsService
             ->join('orders', 'order_items.order_id', '=', 'orders.id')
             ->join('products', 'order_items.product_id', '=', 'products.id')
             ->whereBetween('orders.order_date', [$startDate, $endDate])
+            ->where('orders.currency', StoreMoney::currency())
             ->where('orders.payment_status', 'paid')
             ->select(
                 'products.id',
@@ -143,13 +148,7 @@ class AnalyticsService
         $customerSegments = DB::query()
             ->fromSub(
                 DB::table('customers')
-                    // Count only paid orders — pending/failed/cancelled orders would
-                    // otherwise inflate a customer into a higher segment. Keep it in the
-                    // JOIN (not a WHERE) so customers with no paid orders still show as 'No Orders'.
-                    ->leftJoin('orders', function ($join) {
-                        $join->on('customers.id', '=', 'orders.customer_id')
-                            ->where('orders.payment_status', '=', 'paid');
-                    })
+                    ->leftJoin('orders', 'customers.id', '=', 'orders.customer_id')
                     ->select(
                         'customers.id',
                         DB::raw("
@@ -176,10 +175,10 @@ class AnalyticsService
             'customers.last_name',
             'customers.email',
             DB::raw('COUNT(orders.id) as order_count'),
-            // Net of refunds — refunded orders stay payment_status='paid'.
-            DB::raw('SUM(orders.total_amount - COALESCE(orders.refund_total, 0)) as lifetime_value')
+            DB::raw('SUM(orders.total_amount) as lifetime_value')
         )
             ->join('orders', 'customers.id', '=', 'orders.customer_id')
+            ->where('orders.currency', StoreMoney::currency())
             ->where('orders.payment_status', 'paid')
             ->groupBy('customers.id', 'customers.first_name', 'customers.last_name', 'customers.email')
             ->orderByDesc('lifetime_value')
@@ -201,12 +200,9 @@ class AnalyticsService
      */
     public function getInventoryInsights(): array
     {
-        // Low stock products — the list is capped for display; low_stock_count is the
-        // true total so the dashboard stat doesn't silently plateau at the cap.
-        $lowStockQuery = Product::whereNotNull('low_stock_threshold')
-            ->whereColumn('inventory_count', '<=', 'low_stock_threshold');
-        $lowStockCount = (clone $lowStockQuery)->count();
-        $lowStockProducts = $lowStockQuery
+        // Low stock products
+        $lowStockProducts = Product::whereNotNull('low_stock_threshold')
+            ->whereColumn('inventory_count', '<=', 'low_stock_threshold')
             ->select('id', 'name', 'inventory_count', 'low_stock_threshold')
             ->orderBy('inventory_count')
             ->limit(20)
@@ -238,7 +234,7 @@ class AnalyticsService
 
         return [
             'low_stock_products' => $lowStockProducts,
-            'low_stock_count' => $lowStockCount,
+            'low_stock_count' => Product::whereNotNull('low_stock_threshold')->whereColumn('inventory_count', '<=', 'low_stock_threshold')->where('inventory_count', '>', 0)->count(),
             'out_of_stock_count' => $outOfStockCount,
             'inventory_value' => round($inventoryValue, 2),
             'stock_status' => $stockStatus,

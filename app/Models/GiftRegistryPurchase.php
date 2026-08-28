@@ -2,13 +2,14 @@
 
 namespace App\Models;
 
+use App\Traits\IsTenantModel;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class GiftRegistryPurchase extends Model
 {
-    use HasFactory;
+    use HasFactory, IsTenantModel;
 
     public $timestamps = false;
 
@@ -30,7 +31,7 @@ class GiftRegistryPurchase extends Model
 
     public function registryItem(): BelongsTo
     {
-        return $this->belongsTo(GiftRegistryItem::class, 'registry_item_id');
+        return $this->belongsTo(GiftRegistryItem::class);
     }
 
     public function order(): BelongsTo

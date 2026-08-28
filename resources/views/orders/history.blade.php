@@ -3,6 +3,7 @@
 @section('content')
 <div class="container">
     <h1>Order History</h1>
+    @include('orders.verify-email-notice')
     @if($orders->isEmpty())
         <p>You haven't placed any orders yet.</p>
     @else
@@ -21,7 +22,7 @@
                     <tr>
                         <td>{{ $order->id }}</td>
                         <td>{{ $order->created_at->format('Y-m-d H:i') }}</td>
-                        <td>${{ number_format($order->total_amount, 2) }}</td>
+                        <td>{{ $order->formatMoney($order->total_amount) }}</td>
                         <td>{{ ucfirst($order->status) }}</td>
                         <td>
                             <a href="{{ route('orders.show', $order->id) }}" class="btn btn-sm btn-primary">View Details</a>

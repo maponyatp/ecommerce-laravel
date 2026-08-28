@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Traits\IsTenantModel;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -11,6 +12,7 @@ use Illuminate\Support\Str;
 class GiftCard extends Model
 {
     use HasFactory;
+    use IsTenantModel;
 
     protected $fillable = [
         'code',
@@ -50,7 +52,7 @@ class GiftCard extends Model
 
     public function isActive(): bool
     {
-        return $this->disabled_at === null &&
+        return $this->disabled_at === null && 
                ($this->expires_at === null || $this->expires_at->isFuture()) &&
                $this->balance > 0;
     }
@@ -65,9 +67,9 @@ class GiftCard extends Model
         return $this->isActive() && $this->balance >= $amount;
     }
 
-    public function use(float $amount, Order $order, ?string $note = null): bool
+    public function use(float $amount, Order $order, string $note = null): bool
     {
-        if (! $this->canUse($amount)) {
+        if (!$this->canUse($amount)) {
             return false;
         }
 
@@ -83,7 +85,7 @@ class GiftCard extends Model
         return true;
     }
 
-    public function refund(float $amount, ?Order $order = null, ?string $note = null): void
+    public function refund(float $amount, Order $order = null, string $note = null): void
     {
         $this->balance += $amount;
         $this->save();
@@ -95,7 +97,7 @@ class GiftCard extends Model
         ]);
     }
 
-    public function disable(?string $reason = null): void
+    public function disable(string $reason = null): void
     {
         $this->disabled_at = now();
         $this->note = $reason;
@@ -129,17 +131,17 @@ class GiftCard extends Model
 
     public function getMaskedCodeAttribute(): string
     {
-        return '****-****-****-'.$this->last_characters;
+        return '****-****-****-' . $this->last_characters;
     }
 
     public function scopeActive($query)
     {
         return $query->whereNull('disabled_at')
-            ->where(function ($q) {
-                $q->whereNull('expires_at')
-                    ->orWhere('expires_at', '>', now());
-            })
-            ->where('balance', '>', 0);
+                    ->where(function ($q) {
+                        $q->whereNull('expires_at')
+                          ->orWhere('expires_at', '>', now());
+                    })
+                    ->where('balance', '>', 0);
     }
 
     public function scopeExpired($query)

@@ -6,6 +6,7 @@ use App\Models\SiteSetting;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Spatie\Permission\Models\Role;
+use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
 
 class SiteSettingControllerTest extends TestCase
@@ -15,11 +16,10 @@ class SiteSettingControllerTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        // Site settings are admin-only; these cover controller behaviour, so
-        // authenticate as an admin (authorization is covered in
-        // SiteSettingSecurityTest).
-        Role::findOrCreate('super_admin', 'web');
-        $this->actingAs(User::factory()->create()->assignRole('super_admin'));
+        $staff = User::factory()->create();
+        app(PermissionRegistrar::class)->setPermissionsTeamId(null);
+        $staff->assignRole(Role::firstOrCreate(['name' => 'admin', 'guard_name' => 'web']));
+        $this->actingAs($staff);
     }
 
     private function makeSetting(array $overrides = []): SiteSetting
@@ -112,5 +112,13 @@ class SiteSettingControllerTest extends TestCase
         ]);
 
         $response->assertStatus(404);
+    }
+
+    public function test_duplicate_setting_name_is_validation_error_not_sql_failure(): void
+    {
+        $this->makeSetting(['name' => 'first']);
+        $second = $this->makeSetting(['name' => 'second']);
+        $this->postJson(route('site_settings.update', $second->id), ['name' => 'first', 'value' => 'changed'])->assertUnprocessable();
+        $this->assertSame('second', $second->fresh()->name);
     }
 }

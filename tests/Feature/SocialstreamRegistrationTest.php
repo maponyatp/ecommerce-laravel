@@ -2,7 +2,6 @@
 
 namespace Tests\Feature;
 
-use PHPUnit\Framework\Attributes\DataProvider;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Session;
 use JoelButcher\Socialstream\Providers;
@@ -10,6 +9,7 @@ use Laravel\Fortify\Features as FortifyFeatures;
 use Laravel\Socialite\Facades\Socialite;
 use Laravel\Socialite\Two\User;
 use Mockery;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 class SocialstreamRegistrationTest extends TestCase
@@ -67,6 +67,11 @@ class SocialstreamRegistrationTest extends TestCase
     #[DataProvider('socialiteProvidersDataProvider')]
     public function test_users_can_register_using_socialite_providers(string $socialiteProvider): void
     {
+        config(["services.$socialiteProvider" => [
+            'client_id' => 'client-id',
+            'client_secret' => 'client-secret',
+            'redirect' => "http://localhost/oauth/$socialiteProvider/callback",
+        ]]);
         if (! FortifyFeatures::enabled(FortifyFeatures::registration())) {
             $this->markTestSkipped('Registration support is not enabled.');
         }
@@ -75,7 +80,7 @@ class SocialstreamRegistrationTest extends TestCase
             $this->markTestSkipped("Registration support with the $socialiteProvider provider is not enabled.");
         }
 
-        $user = (new User())
+        $user = (new User)
             ->map([
                 'id' => 'abcdefgh',
                 'nickname' => 'Jane',

@@ -19,11 +19,11 @@
             @foreach($wishlist as $item)
                 <div class="col-md-4 mb-3">
                     <div class="card">
-                        <img src="/images/placeholder.png" alt="{{ $item->product->name }}" class="card-img-top">
+                        <img src="/images/placeholder.png" alt="{{ $item->product_name_snapshot ?? $item->product->name }}" class="card-img-top">
                         <div class="card-body">
-                            <h5 class="card-title">{{ $item->product->name }}</h5>
+                            <h5 class="card-title">{{ $item->product_name_snapshot ?? $item->product->name }}</h5>
                             <p class="card-text">{{ $item->product->description }}</p>
-                            <p class="card-text"><strong>Price:</strong> ${{ number_format($item->product->price, 2) }}</p>
+                            <p class="card-text"><strong>Price:</strong> {{ $item->product->store_price_label }}</p>
                             <form action="{{ route('wishlist.remove', $item->product) }}" method="POST">
                                 @csrf
                                 @method('DELETE')

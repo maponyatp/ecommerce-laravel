@@ -52,12 +52,9 @@ class ABTestingService
 
         $sessionId = $this->getSessionId();
 
-        // Match the same way assignments are made: by user when known
-        // (conversion may happen in a different session), else by session.
-        $query = ABTestAssignment::where('test_id', $test->id);
-        $assignment = $userId !== null
-            ? $query->where(fn ($q) => $q->where('user_id', $userId)->orWhere('session_id', $sessionId))->first()
-            : $query->where('session_id', $sessionId)->first();
+        $assignment = ABTestAssignment::where('test_id', $test->id)
+            ->where('session_id', $sessionId)
+            ->first();
 
         if ($assignment && !$assignment->converted) {
             $assignment->markConverted($value);

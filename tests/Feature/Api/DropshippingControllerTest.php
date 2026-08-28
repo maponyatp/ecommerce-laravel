@@ -7,32 +7,25 @@ use App\Services\DropshippingService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Laravel\Sanctum\Sanctum;
-use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
 class DropshippingControllerTest extends TestCase
 {
     use RefreshDatabase;
+    use \Tests\Support\StoreApiStaff;
 
     protected $user;
 
     protected function setUp(): void
     {
         parent::setUp();
-
-        // Staff, not a plain customer. These endpoints spend the merchant's supplier
-        // API key, so they are now admin-only; this file previously acted as a
-        // role-less user and asserted 200, which encoded the vulnerability rather
-        // than the intent. Authorization itself is covered by
-        // DropshippingAuthorizationTest — these tests cover validation and the
-        // supplier calls, which still need a caller who is allowed through.
-        Role::findOrCreate('super_admin', 'web');
-        $this->user = User::factory()->create()->assignRole('super_admin');
+        $this->user = User::factory()->create();
+        $this->grantStoreApiStaff($this->user);
     }
 
     protected function actingAsUser(): void
     {
-        Sanctum::actingAs($this->user);
+        Sanctum::actingAs($this->user, ['fulfillment:read', 'fulfillment:write']);
     }
 
     public function test_suppliers_endpoint_requires_authentication()

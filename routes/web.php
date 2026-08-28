@@ -1,31 +1,28 @@
 <?php
 
-use App\Http\Controllers\AccountDataExportController;
-use App\Http\Controllers\AccountErasureController;
 use App\Http\Controllers\CartController;
 use App\Http\Controllers\ChatController;
-use App\Http\Controllers\ContactController;
 use App\Http\Controllers\CheckoutController;
+use App\Http\Controllers\CmsPageController;
+use App\Http\Controllers\ContactController;
 use App\Http\Controllers\DownloadController;
 use App\Http\Controllers\Frontend\ProductCategoryController;
 use App\Http\Controllers\Frontend\ProductCollectionController;
 use App\Http\Controllers\Frontend\ProductController;
 use App\Http\Controllers\Frontend\ProductTagController;
+use App\Http\Controllers\FulfillmentDocumentController;
 use App\Http\Controllers\HomeController;
+use App\Http\Controllers\IkhokhaPaymentController;
 use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\OrderHistoryController;
+use App\Http\Controllers\OrderSupportController;
 use App\Http\Controllers\PaymentMethodController;
-use App\Http\Controllers\PaypalPaymentController;
-use App\Http\Controllers\PaypalWebhookController;
 use App\Http\Controllers\RatingController;
-use App\Http\Controllers\ReviewController;
+use App\Http\Controllers\ReviewController; // New controller for cart
 use App\Http\Controllers\ShippingController;
 use App\Http\Controllers\SitemapController;
 use App\Http\Controllers\SiteSettingController;
-use App\Http\Controllers\StripePaymentController;
-use App\Http\Controllers\StripeWebhookController; // New controller for cart
-use App\Http\Controllers\SubscriptionController;
 use App\Http\Controllers\WishlistController;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
@@ -64,9 +61,9 @@ Route::middleware('auth')->group(function () {
     Route::post('/wishlist/share', [WishlistController::class, 'share'])->name('wishlist.share');
 });
 Route::get('/products', [ProductController::class, 'index'])->name('products.index');
-Route::get('/products/search', [ProductController::class, 'search'])->name('products.search')->middleware('throttle:30,1');
+Route::get('/products/search', [ProductController::class, 'search'])->name('products.search');
+Route::get('/products/compare', [\App\Http\Controllers\ProductComparisonController::class, 'index'])->name('products.compare');
 Route::get('/products/{product}', [ProductController::class, 'show'])->name('products.show');
-Route::post('/products/{product}/notify-me', [ProductController::class, 'notifyMe'])->name('products.notify-me')->middleware('throttle:10,1');
 
 // Category routes
 Route::get('/categories', [ProductCategoryController::class, 'index'])->name('categories.index');
@@ -83,33 +80,44 @@ Route::get('/tags', [ProductTagController::class, 'index'])->name('tags.index');
 Route::get('/tags/{tag}', [ProductTagController::class, 'show'])->name('tags.show');
 
 // Checkout routes
-Route::get('/checkout', [CheckoutController::class, 'initiateCheckout'])->name('checkout.initiate');
-// Throttled: guest checkout captures payment with a posted card token, so an
-// unbounded route is a card-testing / BIN-enumeration oracle on our Stripe account.
-Route::post('/checkout/process', [CheckoutController::class, 'processCheckout'])->name('checkout.process')->middleware('throttle:10,1');
-// Live carrier rates for the current cart + destination — each is persisted as a
-// session-scoped quote the buyer then selects by id (server bills the stored amount).
-Route::post('/checkout/shipping-rates', [CheckoutController::class, 'shippingRates'])->name('checkout.shipping-rates');
-Route::get('/checkout/confirmation/{order}', [CheckoutController::class, 'showConfirmation'])->name('checkout.confirmation');
+Route::get('/checkout', [CheckoutController::class, 'initiateCheckout'])->block(90, 10)->name('checkout.initiate');
+Route::post('/checkout/process', [CheckoutController::class, 'processCheckout'])->block(90, 10)->name('checkout.process');
+Route::post('/checkout/quote', [CheckoutController::class, 'quote'])->block(90, 10)->middleware('throttle:60,1')->name('checkout.quote');
+Route::get('/checkout/confirmation/{order}', [CheckoutController::class, 'showConfirmation'])
+    ->middleware('signed')
+    ->name('checkout.confirmation');
+Route::post('/payments/ikhokha/webhook', [IkhokhaPaymentController::class, 'webhook'])
+    ->middleware('throttle:120,1')
+    ->name('payments.ikhokha.webhook');
+Route::get('/payments/ikhokha/return/{order}', [IkhokhaPaymentController::class, 'return'])
+    ->middleware('signed')
+    ->name('payments.ikhokha.return');
 
-// Shipping routes — store-wide config, admin-only (auth here, role checked in the controller)
-Route::middleware('auth')->group(function () {
+Route::get('/order-support/{order}', [OrderSupportController::class, 'show'])
+    ->middleware('throttle:60,1')->name('order-support.show');
+Route::post('/order-support/{order}', [OrderSupportController::class, 'store'])
+    ->middleware('throttle:6,1')->block(30, 10)->name('order-support.store');
+
+// Shipping routes
+Route::middleware(['auth', 'admin', 'throttle:60,1'])->group(function () {
+    Route::get('/operations/packing-slips/{order}', [FulfillmentDocumentController::class, 'packingSlip'])->name('operations.packing-slip');
+    Route::get('/operations/delivery-list', [FulfillmentDocumentController::class, 'deliveryList'])->name('operations.delivery-list');
+});
+
+Route::middleware(['auth', 'admin'])->group(function () {
     Route::get('/shipping', [ShippingController::class, 'index'])->name('shipping.index');
     Route::post('/shipping', [ShippingController::class, 'store'])->name('shipping.store');
     Route::put('/shipping/{shippingMethod}', [ShippingController::class, 'update'])->name('shipping.update');
     Route::delete('/shipping/{shippingMethod}', [ShippingController::class, 'destroy'])->name('shipping.destroy');
 });
+Route::get('/invoice/{invoice}/print', [InvoiceController::class, 'print'])
+    ->middleware('signed')
+    ->name('invoices.print');
 
 // Order history routes
 Route::middleware('auth')->group(function () {
     Route::get('/orders', [OrderHistoryController::class, 'index'])->name('orders.index');
     Route::get('/orders/{id}', [OrderHistoryController::class, 'show'])->name('orders.show');
-
-    // GDPR right-of-access: download all of your own personal data as JSON.
-    Route::get('/account/data-export', AccountDataExportController::class)->name('account.data-export');
-
-    // GDPR right-to-erasure: anonymise your account (orders retained, PII scrubbed).
-    Route::delete('/account', AccountErasureController::class)->name('account.erase');
 });
 
 Route::middleware('auth')->prefix('payment_methods')->group(function () {
@@ -121,46 +129,8 @@ Route::middleware('auth')->prefix('payment_methods')->group(function () {
     Route::post('/set_default/{id}', [PaymentMethodController::class, 'setDefaultPaymentMethod'])->name('payment_methods.setDefault');
 });
 
-// Stripe webhook — unauthenticated + CSRF-exempt (verified by signature in the controller)
-Route::post('/stripe/webhook', [StripeWebhookController::class, 'handle'])->name('stripe.webhook');
-
-// PayPal subscription webhook — unauthenticated + CSRF-exempt (signature verified in
-// the controller). PayPal drives subscription lifecycle status (activated/cancelled/…)
-// out of band; this reconciles it onto the local PaypalSubscription record.
-Route::post('/paypal/webhook', [PaypalWebhookController::class, 'handle'])->name('paypal.webhook');
-
-// Stripe subscription mutations act only on the current user ($request->user()),
-// so an anonymous request would deref null and 500. Require auth.
-Route::middleware('auth')->group(function () {
-    Route::post('/stripe/subscription', [StripePaymentController::class, 'createSubscription'])->name('stripe.subscription.create');
-    Route::patch('/stripe/subscription', [StripePaymentController::class, 'updateSubscription'])->name('stripe.subscription.update');
-    Route::delete('/stripe/subscription', [StripePaymentController::class, 'cancelSubscription'])->name('stripe.subscription.cancel');
-});
-
-// Plan listing touches no user data — stays public (pricing page).
-Route::get('/subscriptions', [SubscriptionController::class, 'viewAvailableSubscriptions'])->name('subscriptions.view');
-
-// Subscription management all runs on Auth::user() — same null-deref risk, require auth.
-Route::middleware('auth')->group(function () {
-    Route::post('/subscription', [SubscriptionController::class, 'subscribeToPlan'])->name('subscription.create');
-    Route::patch('/subscription/change', [SubscriptionController::class, 'changePlan'])->name('subscription.change-plan');
-    Route::delete('/subscription/cancel', [SubscriptionController::class, 'cancelSubscription'])->name('subscription.cancel');
-});
-
-// PayPal one-time payment + subscription mutations act on caller-supplied ids
-// (a PayPal order id to capture / a subscriptionId) against the merchant's live
-// PayPal credentials — require auth so an anonymous request can't trigger a capture
-// or update/cancel someone else's subscription.
-// createSubscription now persists a PaypalSubscription owned by the caller, and the
-// webhook keeps its status in sync. ponytail: update/cancel still act on a
-// caller-supplied subscriptionId without checking that persisted ownership — a
-// follow-up should scope them to the caller's own PaypalSubscription rows.
-Route::middleware('auth')->group(function () {
-    Route::post('/paypal/payment', [PaypalPaymentController::class, 'createOneTimePayment'])->name('paypal.payment.create');
-    Route::post('/paypal/subscription', [PaypalPaymentController::class, 'createSubscription'])->name('paypal.subscription.create');
-    Route::patch('/paypal/subscription/update', [PaypalPaymentController::class, 'updateSubscription'])->name('paypal.subscription.update');
-    Route::delete('/paypal/subscription/cancel', [PaypalPaymentController::class, 'cancelSubscription'])->name('paypal.subscription.cancel');
-});
+// Payment capture is handled only by the checkout flow. Do not expose
+// customer-supplied amounts or unverified gateway identifiers as public endpoints.
 
 // Cart routes
 Route::get('/cart', [CartController::class, 'index'])->name('cart.index');
@@ -168,68 +138,82 @@ Route::post('/cart/add/{product}', [CartController::class, 'add'])->name('cart.a
 Route::put('/cart/update/{productId}', [CartController::class, 'update'])->name('cart.update');
 Route::delete('/cart/remove/{productId}', [CartController::class, 'remove'])->name('cart.remove');
 Route::delete('/cart/clear', [CartController::class, 'clear'])->name('cart.clear');
-// Throttled: distinguishable valid/invalid responses make this brute-forceable to
-// enumerate discount codes; cap attempts per IP.
-Route::post('/cart/apply-coupon', [CartController::class, 'applyCoupon'])->name('cart.apply-coupon')->middleware('throttle:10,1');
+Route::post('/cart/apply-coupon', [CartController::class, 'applyCoupon'])->name('cart.apply-coupon');
 Route::delete('/cart/remove-coupon', [CartController::class, 'removeCoupon'])->name('cart.remove-coupon');
 
-// Ratings and reviews — reads are public; writes require login (approve is admin-only, gated in the controller)
+// Ratings and reviews
 Route::get('/product/{product}/reviews', [ReviewController::class, 'show'])->name('reviews.show');
-Route::middleware('auth')->group(function () {
-    Route::post('/reviews', [ReviewController::class, 'store'])->name('reviews.store');
-    Route::post('/reviews/approve/{id}', [ReviewController::class, 'approve'])->name('reviews.approve');
-    Route::post('/reviews/{id}/vote', [ReviewController::class, 'vote'])->name('reviews.vote');
-});
+Route::post('/reviews', [ReviewController::class, 'store'])->name('reviews.store');
+Route::post('/reviews/approve/{id}', [ReviewController::class, 'approve'])->middleware(['auth', 'admin'])->name('reviews.approve');
+Route::post('/reviews/{id}/vote', [ReviewController::class, 'vote'])->middleware(['auth', 'throttle:30,1'])->name('reviews.vote');
 
 Route::get('/product/{product}/ratings/average', [RatingController::class, 'calculateAverageRating'])->name('ratings.average');
 Route::post('/ratings', [RatingController::class, 'store'])->middleware('auth')->name('ratings.store');
 
+// New comparison routes
+Route::post('/product/{category}/{product}/compare', [\App\Http\Controllers\ProductComparisonController::class, 'add'])->block(10, 5)->name('products.addToCompare');
+Route::delete('/product/{category}/{product}/compare', [\App\Http\Controllers\ProductComparisonController::class, 'remove'])->block(10, 5)->name('products.removeFromCompare');
+Route::delete('/products/compare/clear', [\App\Http\Controllers\ProductComparisonController::class, 'clear'])->block(10, 5)->name('products.clearCompare');
+
+Route::get('/downloads/order-items/{item}', [DownloadController::class, 'download'])
+    ->middleware(['signed', 'throttle:30,1'])->name('downloads.file');
+
 Route::middleware('auth')->group(function () {
-    Route::get('/download/{product}', [DownloadController::class, 'generateSecureLink'])->name('download.generate-link');
-    Route::get('/download/file/{product}', [DownloadController::class, 'serveFile'])->name('download.serve-file');
+    Route::get('/download/{category}/{product}', [DownloadController::class, 'generateSecureLink'])->name('download.generate-link');
+    Route::get('/download/file/{category}/{product}', [DownloadController::class, 'serveFile'])->name('download.serve-file');
 
     // Invoice routes
     Route::get('/invoices', [InvoiceController::class, 'index'])->name('invoices.index');
     Route::get('/invoices/{id}', [InvoiceController::class, 'show'])->name('invoices.show');
 });
 
-// Site settings are store-wide config, admin-only (auth here, role checked in the controller)
-Route::middleware('auth')->group(function () {
+Route::middleware(['auth', 'admin'])->group(function () {
     Route::get('/site-settings', [SiteSettingController::class, 'index'])->name('site_settings.index');
     Route::get('/site-settings/{id}/edit', [SiteSettingController::class, 'edit'])->name('site_settings.edit');
     Route::post('/site-settings/{id}', [SiteSettingController::class, 'update'])->name('site_settings.update');
+    Route::post('/inventory/adjust', [InventoryController::class, 'adjustInventory'])->name('inventory.adjust');
 });
 
 Route::get('/sitemap.xml', [SitemapController::class, 'index'])->name('sitemap.xml');
 
-// Inventory routes
-Route::post('/inventory/adjust', [InventoryController::class, 'adjustInventory'])->middleware('auth')->name('inventory.adjust');
-
-// Pages
-// TODO: implement CMS features for page and form editing
-Route::get('/contact', [ContactController::class, 'show'])->name('contact');
-// Public and unauthenticated, so it is a spam-relay target: honeypot in the
-// controller, throttle here. Matches the convention used by apply-coupon and notify-me.
-Route::post('/contact', [ContactController::class, 'send'])
+Route::post('/contact', [ContactController::class, 'store'])
     ->middleware('throttle:5,1')
-    ->name('contact.send');
-Route::view('/about', 'about')->name('about');
-Route::view('/shop', 'shop')->name('shop');
+    ->name('contact.submit');
+
+// CMS pages. Core storefront routes remain above this catch-all route.
+Route::middleware(['auth', 'admin', \App\Http\Middleware\PrivateCustomerDirectory::class, 'throttle:20,1'])->group(function () {
+    Route::get('/admin/theme-library/export/{theme?}', [\App\Http\Controllers\ThemeLibraryController::class, 'export'])->whereNumber('theme')->name('themes.export');
+    Route::get('/admin/theme-library/preview/{theme}', [\App\Http\Controllers\ThemeLibraryController::class, 'preview'])->whereNumber('theme')->middleware('signed')->name('themes.preview');
+    Route::get('/admin/theme-library/assets/{theme}/{file}', [\App\Http\Controllers\ThemeLibraryController::class, 'asset'])->whereNumber('theme')->name('themes.asset');
+});
+Route::get('/credit-notes/{creditNote}', [\App\Http\Controllers\CreditNoteController::class, 'show'])
+    ->whereNumber('creditNote')->middleware([\App\Http\Middleware\PrivateCustomerDirectory::class, 'throttle:60,1'])->name('credit-notes.show');
+Route::get('/operations/refunds/export', [\App\Http\Controllers\CreditNoteController::class, 'export'])
+    ->middleware(['auth', 'admin', \App\Http\Middleware\PrivateCustomerDirectory::class, 'throttle:10,1'])->name('operations.refunds.export');
+Route::get('/cms/preview/{page:id}/{version}', [CmsPageController::class, 'preview'])
+    ->whereNumber('page')->whereNumber('version')
+    ->middleware(['auth', 'signed', \App\Http\Middleware\PrivateCustomerDirectory::class, 'throttle:60,1'])
+    ->name('cms.pages.preview');
+Route::get('/pages/{slug}', [CmsPageController::class, 'show'])->name('cms.pages.show');
+
+// Preserve existing named storefront URLs while allowing a published CMS page
+// with the same slug to replace the legacy view.
+Route::get('/about', [CmsPageController::class, 'show'])->defaults('slug', 'about')->name('about');
+Route::get('/contact', [CmsPageController::class, 'show'])->defaults('slug', 'contact')->name('contact');
+Route::get('/shop', [CmsPageController::class, 'show'])->defaults('slug', 'shop')->name('shop');
 
 Route::view('/account', 'account')->middleware('auth')->name('account');
 
 // Blog routes
 
 // Chat routes
-Route::prefix('chat')->group(function () {
-    // Public chat: unauthenticated. Throttle the writes so a guest can't loop
-    // start->message to flood the conversation/message tables + the agent queue.
-    Route::post('/start', [ChatController::class, 'start'])->name('chat.start')->middleware('throttle:15,1');
+Route::prefix('chat')->middleware([\App\Http\Middleware\PrivateCustomerDirectory::class, 'throttle:120,1'])->group(function () {
+    Route::post('/start', [ChatController::class, 'start'])->name('chat.start');
     Route::get('/session/{sessionId}', [ChatController::class, 'getBySession'])->name('chat.session');
-    Route::post('/{conversationId}/message', [ChatController::class, 'sendMessage'])->name('chat.message')->middleware('throttle:30,1');
+    Route::post('/{conversationId}/message', [ChatController::class, 'sendMessage'])->name('chat.message');
     Route::get('/{conversationId}/messages', [ChatController::class, 'getMessages'])->name('chat.messages');
-    Route::post('/{conversationId}/close', [ChatController::class, 'close'])->name('chat.close')->middleware('throttle:15,1');
-    Route::post('/{conversationId}/rating', [ChatController::class, 'submitRating'])->name('chat.rating')->middleware('throttle:15,1');
+    Route::post('/{conversationId}/close', [ChatController::class, 'close'])->name('chat.close');
+    Route::post('/{conversationId}/rating', [ChatController::class, 'submitRating'])->name('chat.rating');
 
     // Agent routes
     Route::middleware(['auth'])->group(function () {
@@ -242,3 +226,7 @@ Route::prefix('chat')->group(function () {
 if (class_exists(Socialstream::class)) {
     require __DIR__.'/socialstream.php';
 }
+
+// Keep this last: it must never take precedence over account, chat, auth, or
+// other storefront routes. It powers legacy CMS URLs such as /about.
+Route::get('/{slug}', [CmsPageController::class, 'show'])->name('cms.pages.slug');

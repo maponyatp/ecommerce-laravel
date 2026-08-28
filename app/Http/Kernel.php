@@ -4,13 +4,12 @@ namespace App\Http;
 
 use App\Http\Middleware\Authenticate;
 use App\Http\Middleware\EncryptCookies;
+use App\Http\Middleware\EnsureAdministrator;
+use App\Http\Middleware\EnsureStorefrontIsAvailable;
 use App\Http\Middleware\PreventRequestsDuringMaintenance;
 use App\Http\Middleware\RedirectIfAuthenticated;
-use App\Http\Middleware\ResolveChannel;
-use App\Http\Middleware\SecurityHeaders;
 use App\Http\Middleware\TeamsPermission;
 use App\Http\Middleware\TrimStrings;
-use App\Http\Middleware\TrustHosts;
 use App\Http\Middleware\TrustProxies;
 use App\Http\Middleware\ValidateSignature;
 use App\Http\Middleware\VerifyCsrfToken;
@@ -41,17 +40,15 @@ class Kernel extends HttpKernel
      * @var array<int, class-string|string>
      */
     protected $middleware = [
-        // First, because everything after it reads the host it validates.
-        // Inert in local and under tests — Laravel only specifies trusted hosts
-        // outside them.
-        TrustHosts::class,
+        // \App\Http\Middleware\TrustHosts::class,
         TrustProxies::class,
+        \App\Http\Middleware\StoreFirewall::class,
+        \App\Http\Middleware\StaffRequestAudit::class,
         HandleCors::class,
         PreventRequestsDuringMaintenance::class,
         ValidatePostSize::class,
         TrimStrings::class,
         ConvertEmptyStringsToNull::class,
-        SecurityHeaders::class,
     ];
 
     /**
@@ -65,17 +62,16 @@ class Kernel extends HttpKernel
             AddQueuedCookiesToResponse::class,
             StartSession::class,
             ShareErrorsFromSession::class,
+            EnsureStorefrontIsAvailable::class,
             VerifyCsrfToken::class,
             SubstituteBindings::class,
             TeamsPermission::class,
-            ResolveChannel::class,
         ],
 
         'api' => [
             // \Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class,
             ThrottleRequests::class.':api',
             SubstituteBindings::class,
-            ResolveChannel::class,
         ],
     ];
 
@@ -98,5 +94,6 @@ class Kernel extends HttpKernel
         'signed' => ValidateSignature::class,
         'throttle' => ThrottleRequests::class,
         'verified' => EnsureEmailIsVerified::class,
+        'admin' => EnsureAdministrator::class,
     ];
 }

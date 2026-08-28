@@ -28,14 +28,15 @@ Homestead.json
 rr
 .rr.yaml
 
-/storage/rector
-
-/.idea
-
-# Agent worktree checkouts. The committed agent configuration is AGENTS.md,
-# CLAUDE.md and docs/agents/ — this directory is scratch.
-/.claude/
-
-# PHP's default error log lands here under some server configurations. It was
-# committed once, leaking the deployment path in every line.
+# Local operations, backups, credentials and generated files are not source.
+/work/
 /error_log
+*.log
+*.sqlite
+*.sqlite3
+*.sql
+*.sql.gz
+*.tar.gz
+*.zip
+*.pem
+*.key

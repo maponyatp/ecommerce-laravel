@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Widgets;
 
 use App\Services\AnalyticsService;
+use App\Support\StoreMoney;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 
@@ -16,27 +17,24 @@ class SalesOverviewWidget extends BaseWidget
         $metrics = $analyticsService->getSalesMetrics();
 
         return [
-            Stat::make('Total Revenue', '$' . number_format($metrics['total_revenue'], 2))
-                ->description($metrics['revenue_growth'] >= 0 
-                    ? $metrics['revenue_growth'] . '% increase' 
-                    : abs($metrics['revenue_growth']) . '% decrease')
+            Stat::make('Paid order totals — '.StoreMoney::currency(), StoreMoney::format($metrics['total_revenue']))
+                ->description($metrics['revenue_growth'] >= 0
+                    ? $metrics['revenue_growth'].'% increase'
+                    : abs($metrics['revenue_growth']).'% decrease')
                 ->descriptionIcon($metrics['revenue_growth'] >= 0 ? 'heroicon-m-arrow-trending-up' : 'heroicon-m-arrow-trending-down')
-                ->color($metrics['revenue_growth'] >= 0 ? 'success' : 'danger')
-                ->chart([7, 3, 4, 5, 6, 3, 5, 3]),
-            
-            Stat::make('Total Orders', number_format($metrics['order_count']))
-                ->description($metrics['order_growth'] >= 0 
-                    ? $metrics['order_growth'] . '% increase' 
-                    : abs($metrics['order_growth']) . '% decrease')
+                ->color($metrics['revenue_growth'] >= 0 ? 'success' : 'danger'),
+
+            Stat::make('Paid '.StoreMoney::currency().' orders', number_format($metrics['order_count']))
+                ->description($metrics['order_growth'] >= 0
+                    ? $metrics['order_growth'].'% increase'
+                    : abs($metrics['order_growth']).'% decrease')
                 ->descriptionIcon($metrics['order_growth'] >= 0 ? 'heroicon-m-arrow-trending-up' : 'heroicon-m-arrow-trending-down')
-                ->color($metrics['order_growth'] >= 0 ? 'success' : 'danger')
-                ->chart([7, 3, 4, 5, 6, 3, 5, 3]),
-            
-            Stat::make('Average Order Value', '$' . number_format($metrics['avg_order_value'], 2))
-                ->description('Last 30 days')
+                ->color($metrics['order_growth'] >= 0 ? 'success' : 'danger'),
+
+            Stat::make('Average paid order', StoreMoney::format($metrics['avg_order_value']))
+                ->description('Last 30 days; '.$metrics['excluded_currency_orders'].' other/unknown-currency orders excluded')
                 ->descriptionIcon('heroicon-m-shopping-cart')
-                ->color('primary')
-                ->chart([7, 3, 4, 5, 6, 3, 5, 3]),
+                ->color('primary'),
         ];
     }
 }

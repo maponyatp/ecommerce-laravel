@@ -6,7 +6,6 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Support\Facades\DB;
 
 class LoyaltyReward extends Model
 {
@@ -57,7 +56,7 @@ class LoyaltyReward extends Model
      */
     public function isAvailable(?int $userId = null): bool
     {
-        if (! $this->is_active) {
+        if (!$this->is_active) {
             return false;
         }
 
@@ -92,45 +91,33 @@ class LoyaltyReward extends Model
      */
     public function redeem(int $userId, ?int $orderId = null): ?LoyaltyRewardRedemption
     {
-        // Four writes across two tables. Unwrapped and unlocked, `isAvailable()`
-        // is a check-then-act on both limits it enforces: two callers racing for
-        // the last unit both read `stock_quantity = 1`, both pay, both decrement,
-        // and the stock lands at -1 with two redemption rows. `max_redemptions`
-        // has the same window — it is a `count()` compared to a limit with
-        // nothing holding the rows still in between.
-        //
-        // Locking the reward row serialises callers competing for the same
-        // reward and leaves callers of different rewards alone, which is the
-        // narrowest lock that closes both windows.
-        return DB::transaction(function () use ($userId, $orderId) {
-            $reward = static::query()->whereKey($this->getKey())->lockForUpdate()->first();
+        if (!$this->isAvailable($userId)) {
+            return null;
+        }
 
-            if ($reward === null || ! $reward->isAvailable($userId)) {
-                return null;
-            }
+        // Check user has enough points
+        $loyaltyPoints = LoyaltyPoints::where('user_id', $userId)
+            ->where('loyalty_program_id', $this->loyalty_program_id)
+            ->first();
 
-            $loyaltyPoints = LoyaltyPoints::where('user_id', $userId)
-                ->where('loyalty_program_id', $reward->loyalty_program_id)
-                ->first();
+        if (!$loyaltyPoints || $loyaltyPoints->balance < $this->points_cost) {
+            return null;
+        }
 
-            // The debit reports its own outcome under its own lock, so the
-            // balance is not checked twice from out here. Dropping this boolean
-            // discarded the one answer the caller's own check could not give.
-            if (! $loyaltyPoints || ! $loyaltyPoints->redeemPoints($reward->points_cost, "Redeemed: {$reward->name}", $orderId)) {
-                return null;
-            }
+        // Redeem points
+        $loyaltyPoints->redeemPoints($this->points_cost, "Redeemed: {$this->name}", $orderId);
 
-            if ($reward->stock_quantity !== null) {
-                $reward->decrement('stock_quantity');
-                $this->refresh();
-            }
+        // Decrement stock
+        if ($this->stock_quantity !== null) {
+            $this->decrement('stock_quantity');
+        }
 
-            return $reward->redemptions()->create([
-                'user_id' => $userId,
-                'order_id' => $orderId,
-                'points_spent' => $reward->points_cost,
-                'status' => 'pending',
-            ]);
-        });
+        // Create redemption record
+        return $this->redemptions()->create([
+            'user_id' => $userId,
+            'order_id' => $orderId,
+            'points_spent' => $this->points_cost,
+            'status' => 'pending',
+        ]);
     }
 }

@@ -3,16 +3,42 @@
 namespace App\Filament\Admin\Resources\ChatConversations\Pages;
 
 use App\Filament\Admin\Resources\ChatConversations\ChatConversationResource;
-use Filament\Resources\Pages\ViewRecord;
-use Filament\Infolists\Infolist;
-use Filament\Infolists\Components\TextEntry;
+use App\Services\CustomerChatService;
+use App\Support\AdminFormValidation;
+use Filament\Actions\Action;
+use Filament\Forms\Components\Textarea;
 use Filament\Infolists\Components\RepeatableEntry;
+use Filament\Infolists\Components\TextEntry;
+use Filament\Notifications\Notification;
+use Filament\Resources\Pages\ViewRecord;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 
 class ViewChatConversation extends ViewRecord
 {
     protected static string $resource = ChatConversationResource::class;
+
+    protected function getHeaderActions(): array
+    {
+        return [
+            Action::make('reply')->label('Send reply')
+                ->visible(fn () => app(CustomerChatService::class)->isStaff() && $this->record->status !== 'closed')
+                ->schema([Textarea::make('message')->required()->maxLength(5000)])
+                ->action(function (array $data): void {
+                    abort_unless(app(CustomerChatService::class)->isStaff(), 403);
+                    AdminFormValidation::run(fn () => app(CustomerChatService::class)->send($this->record->id, $data['message']), $this->getMountedActionSchema()->getStatePath());
+                    $this->record->refresh();
+                    Notification::make()->title('Reply sent')->success()->send();
+                }),
+            Action::make('closeChat')->label('Close chat')->requiresConfirmation()
+                ->visible(fn () => app(CustomerChatService::class)->isStaff() && $this->record->status !== 'closed')
+                ->action(function (): void {
+                    abort_unless(app(CustomerChatService::class)->isStaff(), 403);
+                    app(CustomerChatService::class)->close($this->record->id);
+                    $this->record->refresh();
+                }),
+        ];
+    }
 
     public function infolist(Schema $schema): Schema
     {
@@ -71,10 +97,10 @@ class ViewChatConversation extends ViewRecord
                     ->schema([
                         TextEntry::make('analytics.response_time_seconds')
                             ->label('Response Time')
-                            ->formatStateUsing(fn ($state) => $state ? gmdate("i:s", $state) . ' min' : 'N/A'),
+                            ->formatStateUsing(fn ($state) => $state ? gmdate('i:s', $state).' min' : 'N/A'),
                         TextEntry::make('analytics.resolution_time_seconds')
                             ->label('Resolution Time')
-                            ->formatStateUsing(fn ($state) => $state ? gmdate("i:s", $state) . ' min' : 'N/A'),
+                            ->formatStateUsing(fn ($state) => $state ? gmdate('i:s', $state).' min' : 'N/A'),
                         TextEntry::make('analytics.message_count')
                             ->label('Total Messages'),
                         TextEntry::make('analytics.satisfaction_rating')

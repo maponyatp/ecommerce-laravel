@@ -1,90 +1,20 @@
 @extends('layouts.app')
 
 @section('content')
-    <div class="container mx-auto px-4 my-4">
-        <div class="mb-4">
-            <form method="GET" action="{{ route('products.index') }}" class="flex flex-wrap gap-2 items-end">
-                <div>
-                    <input type="text" name="keyword" value="{{ request('keyword') }}"
-                           placeholder="Search products..."
-                           class="border border-gray-300 rounded-md p-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                </div>
-                <div>
-                    <input type="number" name="filter[price_min]" value="{{ request('filter.price_min') }}"
-                           placeholder="Min price"
-                           class="border border-gray-300 rounded-md p-2 text-sm w-28 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                </div>
-                <div>
-                    <input type="number" name="filter[price_max]" value="{{ request('filter.price_max') }}"
-                           placeholder="Max price"
-                           class="border border-gray-300 rounded-md p-2 text-sm w-28 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                </div>
-                <div>
-                    <select name="sort" class="border border-gray-300 rounded-md p-2 text-sm">
-                        <option value="">Sort by</option>
-                        <option value="price" {{ request('sort') == 'price' ? 'selected' : '' }}>Price: Low to High</option>
-                        <option value="-price" {{ request('sort') == '-price' ? 'selected' : '' }}>Price: High to Low</option>
-                        <option value="name" {{ request('sort') == 'name' ? 'selected' : '' }}>Name: A to Z</option>
-                        <option value="-name" {{ request('sort') == '-name' ? 'selected' : '' }}>Name: Z to A</option>
-                        <option value="-created_at" {{ request('sort') == '-created_at' ? 'selected' : '' }}>Latest</option>
-                    </select>
-                </div>
-                <button type="submit" class="text-white bg-blue-700 hover:bg-blue-800 font-medium rounded-lg text-sm px-4 py-2">
-                    Search
-                </button>
-                @if(request()->hasAny(['keyword', 'filter', 'sort']))
-                    <a href="{{ route('products.index') }}" class="text-gray-600 hover:text-gray-900 text-sm px-3 py-2 border border-gray-300 rounded-lg">
-                        Clear
-                    </a>
-                @endif
-            </form>
-        </div>
-
-        <!-- Products Grid -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-            @if ($products->count() > 0)
-                @foreach ($products as $product)
-                    <div
-                        class="col-span-1 max-w-sm bg-white border border-gray-200 rounded-lg shadow dark:bg-gray-800 dark:border-gray-700">
-                        <a href="{{ route('products.show', ['product' => $product]) }}">
-                            <img class="rounded-t-lg w-full h-48 object-cover" src="{{ $product->imageUrl ?? asset('images/placeholder.png') }}" alt="product image" />
-                        </a>
-                        <div class="px-5 pb-5">
-                            <a href="{{ route('products.show', ['product' => $product]) }}">
-                                <h5 class="text-xl font-semibold tracking-tight text-gray-900 dark:text-white mt-3">
-                                    {{ $product->name }}</h5>
-                            </a>
-                            <p class="text-sm text-gray-500 mt-1 mb-3 line-clamp-2">{{ $product->short_description ?? $product->description }}</p>
-                            <div class="flex items-center justify-between">
-                                <span
-                                    class="text-3xl font-bold text-gray-900 dark:text-white">${{ number_format($product->price, 2) }}</span>
-                                <form action="{{ route('cart.add', $product) }}" method="POST" class="d-inline">
-                                    @csrf
-                                    <button type="submit"
-                                            class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800"
-                                            {{ $product->inventory_count <= 0 ? 'disabled' : '' }}>
-                                        @if($product->inventory_count <= 0)
-                                            Out of Stock
-                                        @else
-                                            <svg class="-ms-2 me-2 h-5 w-5 inline" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
-                                                <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4h1.5L8 16m0 0h8m-8 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4Zm8 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4Zm.75-3H7.5M11 7H6.312M17 4v6m-3-3h6" />
-                                            </svg>
-                                            Add to cart
-                                        @endif
-                                    </button>
-                                </form>
-                            </div>
-                        </div>
-                    </div>
-                @endforeach
-            @else
-                <div class="col-span-3">
-                    <p class="text-gray-500">No products found{{ request('keyword') ? ' for "' . e(request('keyword')) . '"' : '' }}.</p>
-                </div>
-            @endif
-        </div>
-        <div class="mt-4 flex justify-center">
-            {{ $products->links() }}
-        </div>
-    </div>
+<section class="mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-12 lg:px-8">
+ <div class="mb-8 max-w-2xl"><p class="text-xs font-semibold tracking-[.18em] text-zinc-500 uppercase">The flower shop</p><h1 class="mt-2 text-3xl font-semibold tracking-tight text-zinc-950 sm:text-4xl">Find the right flowers for the moment</h1></div>
+ <form method="GET" action="{{ route('products.index') }}" class="mb-8 grid gap-3 rounded-2xl border border-zinc-200 bg-zinc-50 p-4 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_9rem_9rem_12rem_auto] lg:items-end">
+  <label class="grid gap-1.5 text-sm font-medium text-zinc-700">Search<input type="search" name="keyword" value="{{ request('keyword') }}" placeholder="Roses, bouquets, gifts…" class="h-11 rounded-lg border-zinc-300 bg-white px-3 text-zinc-900 focus:border-zinc-900 focus:ring-zinc-900"></label>
+  <label class="grid gap-1.5 text-sm font-medium text-zinc-700">Minimum price<input type="number" min="0" step="0.01" name="filter[price_min]" value="{{ request('filter.price_min') }}" placeholder="0.00" class="h-11 rounded-lg border-zinc-300 bg-white px-3 text-zinc-900 focus:border-zinc-900 focus:ring-zinc-900"></label>
+  <label class="grid gap-1.5 text-sm font-medium text-zinc-700">Maximum price<input type="number" min="0" step="0.01" name="filter[price_max]" value="{{ request('filter.price_max') }}" placeholder="Any" class="h-11 rounded-lg border-zinc-300 bg-white px-3 text-zinc-900 focus:border-zinc-900 focus:ring-zinc-900"></label>
+  <label class="grid gap-1.5 text-sm font-medium text-zinc-700">Sort by<select name="sort" class="h-11 rounded-lg border-zinc-300 bg-white px-3 text-zinc-900 focus:border-zinc-900 focus:ring-zinc-900"><option value="">Featured</option><option value="price" @selected(request('sort') === 'price')>Price: low to high</option><option value="-price" @selected(request('sort') === '-price')>Price: high to low</option><option value="name" @selected(request('sort') === 'name')>Name: A to Z</option><option value="-created_at" @selected(request('sort') === '-created_at')>Newest</option></select></label>
+  <div class="flex gap-2"><button type="submit" class="h-11 flex-1 rounded-lg bg-zinc-950 px-5 text-sm font-semibold text-white hover:bg-zinc-700">Apply</button>@if(request()->hasAny(['keyword', 'filter', 'sort']))<a href="{{ route('products.index') }}" class="grid h-11 place-items-center rounded-lg border border-zinc-300 px-4 text-sm font-semibold text-zinc-700 hover:border-zinc-900">Clear</a>@endif</div>
+ </form>
+ @if ($products->count())
+  <div class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">@foreach ($products as $product)<article class="group overflow-hidden rounded-2xl border border-zinc-200 bg-white"><a href="{{ route('products.show', ['product' => $product]) }}" class="block overflow-hidden bg-zinc-100"><img class="aspect-square w-full object-cover transition duration-300 group-hover:scale-105" src="{{ $product->imageUrl ?? asset('images/placeholder.png') }}" alt="{{ $product->name }}"></a><div class="p-3 sm:p-4"><a href="{{ route('products.show', ['product' => $product]) }}" class="line-clamp-2 text-sm font-semibold text-zinc-950 hover:underline sm:text-base">{{ $product->name }}</a><p class="mt-2 text-base font-bold text-zinc-950 sm:text-lg">{{ $product->store_price_label }}</p><x-catalogue-buy-button :product="$product" /></div></article>@endforeach</div>
+ @else
+  <div class="rounded-2xl border border-dashed border-zinc-300 bg-zinc-50 px-6 py-16 text-center sm:px-12"><h2 class="text-xl font-semibold text-zinc-950">{{ request()->hasAny(['keyword', 'filter', 'sort']) ? 'No flowers match those filters' : 'Our collection is being prepared' }}</h2><p class="mx-auto mt-3 max-w-md text-sm leading-6 text-zinc-600">{{ request()->hasAny(['keyword', 'filter', 'sort']) ? 'Try clearing a filter or searching for something different.' : 'Please check back soon, or contact our team for help choosing a bouquet.' }}</p>@if(request()->hasAny(['keyword', 'filter', 'sort']))<a href="{{ route('products.index') }}" class="mt-6 inline-flex min-h-11 items-center rounded-lg bg-zinc-950 px-5 text-sm font-semibold text-white hover:bg-zinc-700">View all flowers</a>@endif</div>
+ @endif
+ <div class="mt-8">{{ $products->links() }}</div>
+</section>
 @endsection

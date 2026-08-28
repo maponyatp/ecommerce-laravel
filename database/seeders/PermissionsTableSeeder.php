@@ -3,12 +3,12 @@
 namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Spatie\Permission\PermissionRegistrar;
 
 class PermissionsTableSeeder extends Seeder
 {
+
     /**
      * Auto generated seed file
      *
@@ -19,1420 +19,1379 @@ class PermissionsTableSeeder extends Seeder
         app()[PermissionRegistrar::class]->forgetCachedPermissions();
 
         Schema::disableForeignKeyConstraints();
-        DB::table('permissions')->delete();
+        \DB::table('permissions')->delete();
         Schema::enableForeignKeyConstraints();
 
-        DB::table('permissions')->insert([
-            0 => [
+        \DB::table('permissions')->insert(array (
+            0 => 
+            array (
                 'id' => 1,
                 'name' => 'view_cart::item',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:04',
                 'updated_at' => '2024-09-04 14:12:04',
-            ],
-            1 => [
+            ),
+            1 => 
+            array (
                 'id' => 2,
                 'name' => 'view_any_cart::item',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:05',
                 'updated_at' => '2024-09-04 14:12:05',
-            ],
-            2 => [
+            ),
+            2 => 
+            array (
                 'id' => 3,
                 'name' => 'create_cart::item',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:05',
                 'updated_at' => '2024-09-04 14:12:05',
-            ],
-            3 => [
+            ),
+            3 => 
+            array (
                 'id' => 4,
                 'name' => 'update_cart::item',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:05',
                 'updated_at' => '2024-09-04 14:12:05',
-            ],
-            4 => [
+            ),
+            4 => 
+            array (
                 'id' => 5,
                 'name' => 'restore_cart::item',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:05',
                 'updated_at' => '2024-09-04 14:12:05',
-            ],
-            5 => [
+            ),
+            5 => 
+            array (
                 'id' => 6,
                 'name' => 'restore_any_cart::item',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:05',
                 'updated_at' => '2024-09-04 14:12:05',
-            ],
-            6 => [
+            ),
+            6 => 
+            array (
                 'id' => 7,
                 'name' => 'replicate_cart::item',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:05',
                 'updated_at' => '2024-09-04 14:12:05',
-            ],
-            7 => [
+            ),
+            7 => 
+            array (
                 'id' => 8,
                 'name' => 'reorder_cart::item',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:06',
                 'updated_at' => '2024-09-04 14:12:06',
-            ],
-            8 => [
+            ),
+            8 => 
+            array (
                 'id' => 9,
                 'name' => 'delete_cart::item',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:06',
                 'updated_at' => '2024-09-04 14:12:06',
-            ],
-            9 => [
+            ),
+            9 => 
+            array (
                 'id' => 10,
                 'name' => 'delete_any_cart::item',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:06',
                 'updated_at' => '2024-09-04 14:12:06',
-            ],
-            10 => [
+            ),
+            10 => 
+            array (
                 'id' => 11,
                 'name' => 'force_delete_cart::item',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:06',
                 'updated_at' => '2024-09-04 14:12:06',
-            ],
-            11 => [
+            ),
+            11 => 
+            array (
                 'id' => 12,
                 'name' => 'force_delete_any_cart::item',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:06',
                 'updated_at' => '2024-09-04 14:12:06',
-            ],
-            12 => [
+            ),
+            12 => 
+            array (
                 'id' => 13,
                 'name' => 'view_customer',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:06',
                 'updated_at' => '2024-09-04 14:12:06',
-            ],
-            13 => [
+            ),
+            13 => 
+            array (
                 'id' => 14,
                 'name' => 'view_any_customer',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:06',
                 'updated_at' => '2024-09-04 14:12:06',
-            ],
-            14 => [
+            ),
+            14 => 
+            array (
                 'id' => 15,
                 'name' => 'create_customer',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:07',
                 'updated_at' => '2024-09-04 14:12:07',
-            ],
-            15 => [
+            ),
+            15 => 
+            array (
                 'id' => 16,
                 'name' => 'update_customer',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:07',
                 'updated_at' => '2024-09-04 14:12:07',
-            ],
-            16 => [
+            ),
+            16 => 
+            array (
                 'id' => 17,
                 'name' => 'restore_customer',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:07',
                 'updated_at' => '2024-09-04 14:12:07',
-            ],
-            17 => [
+            ),
+            17 => 
+            array (
                 'id' => 18,
                 'name' => 'restore_any_customer',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:07',
                 'updated_at' => '2024-09-04 14:12:07',
-            ],
-            18 => [
+            ),
+            18 => 
+            array (
                 'id' => 19,
                 'name' => 'replicate_customer',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:07',
                 'updated_at' => '2024-09-04 14:12:07',
-            ],
-            19 => [
+            ),
+            19 => 
+            array (
                 'id' => 20,
                 'name' => 'reorder_customer',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:07',
                 'updated_at' => '2024-09-04 14:12:07',
-            ],
-            20 => [
+            ),
+            20 => 
+            array (
                 'id' => 21,
                 'name' => 'delete_customer',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:07',
                 'updated_at' => '2024-09-04 14:12:07',
-            ],
-            21 => [
+            ),
+            21 => 
+            array (
                 'id' => 22,
                 'name' => 'delete_any_customer',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:08',
                 'updated_at' => '2024-09-04 14:12:08',
-            ],
-            22 => [
+            ),
+            22 => 
+            array (
                 'id' => 23,
                 'name' => 'force_delete_customer',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:08',
                 'updated_at' => '2024-09-04 14:12:08',
-            ],
-            23 => [
+            ),
+            23 => 
+            array (
                 'id' => 24,
                 'name' => 'force_delete_any_customer',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:08',
                 'updated_at' => '2024-09-04 14:12:08',
-            ],
-            24 => [
+            ),
+            24 => 
+            array (
                 'id' => 25,
                 'name' => 'view_group',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:08',
                 'updated_at' => '2024-09-04 14:12:08',
-            ],
-            25 => [
+            ),
+            25 => 
+            array (
                 'id' => 26,
                 'name' => 'view_any_group',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:08',
                 'updated_at' => '2024-09-04 14:12:08',
-            ],
-            26 => [
+            ),
+            26 => 
+            array (
                 'id' => 27,
                 'name' => 'create_group',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:08',
                 'updated_at' => '2024-09-04 14:12:08',
-            ],
-            27 => [
+            ),
+            27 => 
+            array (
                 'id' => 28,
                 'name' => 'update_group',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:08',
                 'updated_at' => '2024-09-04 14:12:08',
-            ],
-            28 => [
+            ),
+            28 => 
+            array (
                 'id' => 29,
                 'name' => 'restore_group',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:09',
                 'updated_at' => '2024-09-04 14:12:09',
-            ],
-            29 => [
+            ),
+            29 => 
+            array (
                 'id' => 30,
                 'name' => 'restore_any_group',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:09',
                 'updated_at' => '2024-09-04 14:12:09',
-            ],
-            30 => [
+            ),
+            30 => 
+            array (
                 'id' => 31,
                 'name' => 'replicate_group',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:09',
                 'updated_at' => '2024-09-04 14:12:09',
-            ],
-            31 => [
+            ),
+            31 => 
+            array (
                 'id' => 32,
                 'name' => 'reorder_group',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:09',
                 'updated_at' => '2024-09-04 14:12:09',
-            ],
-            32 => [
+            ),
+            32 => 
+            array (
                 'id' => 33,
                 'name' => 'delete_group',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:10',
                 'updated_at' => '2024-09-04 14:12:10',
-            ],
-            33 => [
+            ),
+            33 => 
+            array (
                 'id' => 34,
                 'name' => 'delete_any_group',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:10',
                 'updated_at' => '2024-09-04 14:12:10',
-            ],
-            34 => [
+            ),
+            34 => 
+            array (
                 'id' => 35,
                 'name' => 'force_delete_group',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:10',
                 'updated_at' => '2024-09-04 14:12:10',
-            ],
-            35 => [
+            ),
+            35 => 
+            array (
                 'id' => 36,
                 'name' => 'force_delete_any_group',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:10',
                 'updated_at' => '2024-09-04 14:12:10',
-            ],
-            36 => [
+            ),
+            36 => 
+            array (
                 'id' => 37,
                 'name' => 'view_invoice',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:10',
                 'updated_at' => '2024-09-04 14:12:10',
-            ],
-            37 => [
+            ),
+            37 => 
+            array (
                 'id' => 38,
                 'name' => 'view_any_invoice',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:10',
                 'updated_at' => '2024-09-04 14:12:10',
-            ],
-            38 => [
+            ),
+            38 => 
+            array (
                 'id' => 39,
                 'name' => 'create_invoice',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:11',
                 'updated_at' => '2024-09-04 14:12:11',
-            ],
-            39 => [
+            ),
+            39 => 
+            array (
                 'id' => 40,
                 'name' => 'update_invoice',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:11',
                 'updated_at' => '2024-09-04 14:12:11',
-            ],
-            40 => [
+            ),
+            40 => 
+            array (
                 'id' => 41,
                 'name' => 'restore_invoice',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:11',
                 'updated_at' => '2024-09-04 14:12:11',
-            ],
-            41 => [
+            ),
+            41 => 
+            array (
                 'id' => 42,
                 'name' => 'restore_any_invoice',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:11',
                 'updated_at' => '2024-09-04 14:12:11',
-            ],
-            42 => [
+            ),
+            42 => 
+            array (
                 'id' => 43,
                 'name' => 'replicate_invoice',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:11',
                 'updated_at' => '2024-09-04 14:12:11',
-            ],
-            43 => [
+            ),
+            43 => 
+            array (
                 'id' => 44,
                 'name' => 'reorder_invoice',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:11',
                 'updated_at' => '2024-09-04 14:12:11',
-            ],
-            44 => [
+            ),
+            44 => 
+            array (
                 'id' => 45,
                 'name' => 'delete_invoice',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:12',
                 'updated_at' => '2024-09-04 14:12:12',
-            ],
-            45 => [
+            ),
+            45 => 
+            array (
                 'id' => 46,
                 'name' => 'delete_any_invoice',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:12',
                 'updated_at' => '2024-09-04 14:12:12',
-            ],
-            46 => [
+            ),
+            46 => 
+            array (
                 'id' => 47,
                 'name' => 'force_delete_invoice',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:12',
                 'updated_at' => '2024-09-04 14:12:12',
-            ],
-            47 => [
+            ),
+            47 => 
+            array (
                 'id' => 48,
                 'name' => 'force_delete_any_invoice',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:12',
                 'updated_at' => '2024-09-04 14:12:12',
-            ],
-            48 => [
+            ),
+            48 => 
+            array (
                 'id' => 49,
                 'name' => 'view_order',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:12',
                 'updated_at' => '2024-09-04 14:12:12',
-            ],
-            49 => [
+            ),
+            49 => 
+            array (
                 'id' => 50,
                 'name' => 'view_any_order',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:12',
                 'updated_at' => '2024-09-04 14:12:12',
-            ],
-            50 => [
+            ),
+            50 => 
+            array (
                 'id' => 51,
                 'name' => 'create_order',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:13',
                 'updated_at' => '2024-09-04 14:12:13',
-            ],
-            51 => [
+            ),
+            51 => 
+            array (
                 'id' => 52,
                 'name' => 'update_order',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:13',
                 'updated_at' => '2024-09-04 14:12:13',
-            ],
-            52 => [
+            ),
+            52 => 
+            array (
                 'id' => 53,
                 'name' => 'restore_order',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:13',
                 'updated_at' => '2024-09-04 14:12:13',
-            ],
-            53 => [
+            ),
+            53 => 
+            array (
                 'id' => 54,
                 'name' => 'restore_any_order',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:13',
                 'updated_at' => '2024-09-04 14:12:13',
-            ],
-            54 => [
+            ),
+            54 => 
+            array (
                 'id' => 55,
                 'name' => 'replicate_order',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:13',
                 'updated_at' => '2024-09-04 14:12:13',
-            ],
-            55 => [
+            ),
+            55 => 
+            array (
                 'id' => 56,
                 'name' => 'reorder_order',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:14',
                 'updated_at' => '2024-09-04 14:12:14',
-            ],
-            56 => [
+            ),
+            56 => 
+            array (
                 'id' => 57,
                 'name' => 'delete_order',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:14',
                 'updated_at' => '2024-09-04 14:12:14',
-            ],
-            57 => [
+            ),
+            57 => 
+            array (
                 'id' => 58,
                 'name' => 'delete_any_order',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:14',
                 'updated_at' => '2024-09-04 14:12:14',
-            ],
-            58 => [
+            ),
+            58 => 
+            array (
                 'id' => 59,
                 'name' => 'force_delete_order',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:14',
                 'updated_at' => '2024-09-04 14:12:14',
-            ],
-            59 => [
+            ),
+            59 => 
+            array (
                 'id' => 60,
                 'name' => 'force_delete_any_order',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:14',
                 'updated_at' => '2024-09-04 14:12:14',
-            ],
-            60 => [
+            ),
+            60 => 
+            array (
                 'id' => 61,
                 'name' => 'view_order::item',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:14',
                 'updated_at' => '2024-09-04 14:12:14',
-            ],
-            61 => [
+            ),
+            61 => 
+            array (
                 'id' => 62,
                 'name' => 'view_any_order::item',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:15',
                 'updated_at' => '2024-09-04 14:12:15',
-            ],
-            62 => [
+            ),
+            62 => 
+            array (
                 'id' => 63,
                 'name' => 'create_order::item',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:15',
                 'updated_at' => '2024-09-04 14:12:15',
-            ],
-            63 => [
+            ),
+            63 => 
+            array (
                 'id' => 64,
                 'name' => 'update_order::item',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:15',
                 'updated_at' => '2024-09-04 14:12:15',
-            ],
-            64 => [
+            ),
+            64 => 
+            array (
                 'id' => 65,
                 'name' => 'restore_order::item',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:15',
                 'updated_at' => '2024-09-04 14:12:15',
-            ],
-            65 => [
+            ),
+            65 => 
+            array (
                 'id' => 66,
                 'name' => 'restore_any_order::item',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:15',
                 'updated_at' => '2024-09-04 14:12:15',
-            ],
-            66 => [
+            ),
+            66 => 
+            array (
                 'id' => 67,
                 'name' => 'replicate_order::item',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:16',
                 'updated_at' => '2024-09-04 14:12:16',
-            ],
-            67 => [
+            ),
+            67 => 
+            array (
                 'id' => 68,
                 'name' => 'reorder_order::item',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:16',
                 'updated_at' => '2024-09-04 14:12:16',
-            ],
-            68 => [
+            ),
+            68 => 
+            array (
                 'id' => 69,
                 'name' => 'delete_order::item',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:16',
                 'updated_at' => '2024-09-04 14:12:16',
-            ],
-            69 => [
+            ),
+            69 => 
+            array (
                 'id' => 70,
                 'name' => 'delete_any_order::item',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:16',
                 'updated_at' => '2024-09-04 14:12:16',
-            ],
-            70 => [
+            ),
+            70 => 
+            array (
                 'id' => 71,
                 'name' => 'force_delete_order::item',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:16',
                 'updated_at' => '2024-09-04 14:12:16',
-            ],
-            71 => [
+            ),
+            71 => 
+            array (
                 'id' => 72,
                 'name' => 'force_delete_any_order::item',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:16',
                 'updated_at' => '2024-09-04 14:12:16',
-            ],
-            72 => [
+            ),
+            72 => 
+            array (
                 'id' => 73,
                 'name' => 'view_product',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:17',
                 'updated_at' => '2024-09-04 14:12:17',
-            ],
-            73 => [
+            ),
+            73 => 
+            array (
                 'id' => 74,
                 'name' => 'view_any_product',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:17',
                 'updated_at' => '2024-09-04 14:12:17',
-            ],
-            74 => [
+            ),
+            74 => 
+            array (
                 'id' => 75,
                 'name' => 'create_product',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:17',
                 'updated_at' => '2024-09-04 14:12:17',
-            ],
-            75 => [
+            ),
+            75 => 
+            array (
                 'id' => 76,
                 'name' => 'update_product',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:17',
                 'updated_at' => '2024-09-04 14:12:17',
-            ],
-            76 => [
+            ),
+            76 => 
+            array (
                 'id' => 77,
                 'name' => 'restore_product',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:17',
                 'updated_at' => '2024-09-04 14:12:17',
-            ],
-            77 => [
+            ),
+            77 => 
+            array (
                 'id' => 78,
                 'name' => 'restore_any_product',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:18',
                 'updated_at' => '2024-09-04 14:12:18',
-            ],
-            78 => [
+            ),
+            78 => 
+            array (
                 'id' => 79,
                 'name' => 'replicate_product',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:18',
                 'updated_at' => '2024-09-04 14:12:18',
-            ],
-            79 => [
+            ),
+            79 => 
+            array (
                 'id' => 80,
                 'name' => 'reorder_product',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:18',
                 'updated_at' => '2024-09-04 14:12:18',
-            ],
-            80 => [
+            ),
+            80 => 
+            array (
                 'id' => 81,
                 'name' => 'delete_product',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:18',
                 'updated_at' => '2024-09-04 14:12:18',
-            ],
-            81 => [
+            ),
+            81 => 
+            array (
                 'id' => 82,
                 'name' => 'delete_any_product',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:19',
                 'updated_at' => '2024-09-04 14:12:19',
-            ],
-            82 => [
+            ),
+            82 => 
+            array (
                 'id' => 83,
                 'name' => 'force_delete_product',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:19',
                 'updated_at' => '2024-09-04 14:12:19',
-            ],
-            83 => [
+            ),
+            83 => 
+            array (
                 'id' => 84,
                 'name' => 'force_delete_any_product',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:19',
                 'updated_at' => '2024-09-04 14:12:19',
-            ],
-            84 => [
+            ),
+            84 => 
+            array (
                 'id' => 85,
                 'name' => 'view_product::category',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:19',
                 'updated_at' => '2024-09-04 14:12:19',
-            ],
-            85 => [
+            ),
+            85 => 
+            array (
                 'id' => 86,
                 'name' => 'view_any_product::category',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:19',
                 'updated_at' => '2024-09-04 14:12:19',
-            ],
-            86 => [
+            ),
+            86 => 
+            array (
                 'id' => 87,
                 'name' => 'create_product::category',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:19',
                 'updated_at' => '2024-09-04 14:12:19',
-            ],
-            87 => [
+            ),
+            87 => 
+            array (
                 'id' => 88,
                 'name' => 'update_product::category',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:20',
                 'updated_at' => '2024-09-04 14:12:20',
-            ],
-            88 => [
+            ),
+            88 => 
+            array (
                 'id' => 89,
                 'name' => 'restore_product::category',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:20',
                 'updated_at' => '2024-09-04 14:12:20',
-            ],
-            89 => [
+            ),
+            89 => 
+            array (
                 'id' => 90,
                 'name' => 'restore_any_product::category',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:20',
                 'updated_at' => '2024-09-04 14:12:20',
-            ],
-            90 => [
+            ),
+            90 => 
+            array (
                 'id' => 91,
                 'name' => 'replicate_product::category',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:20',
                 'updated_at' => '2024-09-04 14:12:20',
-            ],
-            91 => [
+            ),
+            91 => 
+            array (
                 'id' => 92,
                 'name' => 'reorder_product::category',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:20',
                 'updated_at' => '2024-09-04 14:12:20',
-            ],
-            92 => [
+            ),
+            92 => 
+            array (
                 'id' => 93,
                 'name' => 'delete_product::category',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:20',
                 'updated_at' => '2024-09-04 14:12:20',
-            ],
-            93 => [
+            ),
+            93 => 
+            array (
                 'id' => 94,
                 'name' => 'delete_any_product::category',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:21',
                 'updated_at' => '2024-09-04 14:12:21',
-            ],
-            94 => [
+            ),
+            94 => 
+            array (
                 'id' => 95,
                 'name' => 'force_delete_product::category',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:21',
                 'updated_at' => '2024-09-04 14:12:21',
-            ],
-            95 => [
+            ),
+            95 => 
+            array (
                 'id' => 96,
                 'name' => 'force_delete_any_product::category',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:21',
                 'updated_at' => '2024-09-04 14:12:21',
-            ],
-            96 => [
+            ),
+            96 => 
+            array (
                 'id' => 97,
                 'name' => 'view_product::rating',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:21',
                 'updated_at' => '2024-09-04 14:12:21',
-            ],
-            97 => [
+            ),
+            97 => 
+            array (
                 'id' => 98,
                 'name' => 'view_any_product::rating',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:21',
                 'updated_at' => '2024-09-04 14:12:21',
-            ],
-            98 => [
+            ),
+            98 => 
+            array (
                 'id' => 99,
                 'name' => 'create_product::rating',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:22',
                 'updated_at' => '2024-09-04 14:12:22',
-            ],
-            99 => [
+            ),
+            99 => 
+            array (
                 'id' => 100,
                 'name' => 'update_product::rating',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:22',
                 'updated_at' => '2024-09-04 14:12:22',
-            ],
-            100 => [
+            ),
+            100 => 
+            array (
                 'id' => 101,
                 'name' => 'restore_product::rating',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:22',
                 'updated_at' => '2024-09-04 14:12:22',
-            ],
-            101 => [
+            ),
+            101 => 
+            array (
                 'id' => 102,
                 'name' => 'restore_any_product::rating',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:22',
                 'updated_at' => '2024-09-04 14:12:22',
-            ],
-            102 => [
+            ),
+            102 => 
+            array (
                 'id' => 103,
                 'name' => 'replicate_product::rating',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:22',
                 'updated_at' => '2024-09-04 14:12:22',
-            ],
-            103 => [
+            ),
+            103 => 
+            array (
                 'id' => 104,
                 'name' => 'reorder_product::rating',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:22',
                 'updated_at' => '2024-09-04 14:12:22',
-            ],
-            104 => [
+            ),
+            104 => 
+            array (
                 'id' => 105,
                 'name' => 'delete_product::rating',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:23',
                 'updated_at' => '2024-09-04 14:12:23',
-            ],
-            105 => [
+            ),
+            105 => 
+            array (
                 'id' => 106,
                 'name' => 'delete_any_product::rating',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:23',
                 'updated_at' => '2024-09-04 14:12:23',
-            ],
-            106 => [
+            ),
+            106 => 
+            array (
                 'id' => 107,
                 'name' => 'force_delete_product::rating',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:23',
                 'updated_at' => '2024-09-04 14:12:23',
-            ],
-            107 => [
+            ),
+            107 => 
+            array (
                 'id' => 108,
                 'name' => 'force_delete_any_product::rating',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:23',
                 'updated_at' => '2024-09-04 14:12:23',
-            ],
-            108 => [
+            ),
+            108 => 
+            array (
                 'id' => 109,
                 'name' => 'view_product::review',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:23',
                 'updated_at' => '2024-09-04 14:12:23',
-            ],
-            109 => [
+            ),
+            109 => 
+            array (
                 'id' => 110,
                 'name' => 'view_any_product::review',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:23',
                 'updated_at' => '2024-09-04 14:12:23',
-            ],
-            110 => [
+            ),
+            110 => 
+            array (
                 'id' => 111,
                 'name' => 'create_product::review',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:24',
                 'updated_at' => '2024-09-04 14:12:24',
-            ],
-            111 => [
+            ),
+            111 => 
+            array (
                 'id' => 112,
                 'name' => 'update_product::review',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:24',
                 'updated_at' => '2024-09-04 14:12:24',
-            ],
-            112 => [
+            ),
+            112 => 
+            array (
                 'id' => 113,
                 'name' => 'restore_product::review',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:24',
                 'updated_at' => '2024-09-04 14:12:24',
-            ],
-            113 => [
+            ),
+            113 => 
+            array (
                 'id' => 114,
                 'name' => 'restore_any_product::review',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:24',
                 'updated_at' => '2024-09-04 14:12:24',
-            ],
-            114 => [
+            ),
+            114 => 
+            array (
                 'id' => 115,
                 'name' => 'replicate_product::review',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:24',
                 'updated_at' => '2024-09-04 14:12:24',
-            ],
-            115 => [
+            ),
+            115 => 
+            array (
                 'id' => 116,
                 'name' => 'reorder_product::review',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:24',
                 'updated_at' => '2024-09-04 14:12:24',
-            ],
-            116 => [
+            ),
+            116 => 
+            array (
                 'id' => 117,
                 'name' => 'delete_product::review',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:25',
                 'updated_at' => '2024-09-04 14:12:25',
-            ],
-            117 => [
+            ),
+            117 => 
+            array (
                 'id' => 118,
                 'name' => 'delete_any_product::review',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:25',
                 'updated_at' => '2024-09-04 14:12:25',
-            ],
-            118 => [
+            ),
+            118 => 
+            array (
                 'id' => 119,
                 'name' => 'force_delete_product::review',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:25',
                 'updated_at' => '2024-09-04 14:12:25',
-            ],
-            119 => [
+            ),
+            119 => 
+            array (
                 'id' => 120,
                 'name' => 'force_delete_any_product::review',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:25',
                 'updated_at' => '2024-09-04 14:12:25',
-            ],
-            120 => [
+            ),
+            120 => 
+            array (
                 'id' => 121,
                 'name' => 'view_product::tag',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:25',
                 'updated_at' => '2024-09-04 14:12:25',
-            ],
-            121 => [
+            ),
+            121 => 
+            array (
                 'id' => 122,
                 'name' => 'view_any_product::tag',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:25',
                 'updated_at' => '2024-09-04 14:12:25',
-            ],
-            122 => [
+            ),
+            122 => 
+            array (
                 'id' => 123,
                 'name' => 'create_product::tag',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:26',
                 'updated_at' => '2024-09-04 14:12:26',
-            ],
-            123 => [
+            ),
+            123 => 
+            array (
                 'id' => 124,
                 'name' => 'update_product::tag',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:26',
                 'updated_at' => '2024-09-04 14:12:26',
-            ],
-            124 => [
+            ),
+            124 => 
+            array (
                 'id' => 125,
                 'name' => 'restore_product::tag',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:26',
                 'updated_at' => '2024-09-04 14:12:26',
-            ],
-            125 => [
+            ),
+            125 => 
+            array (
                 'id' => 126,
                 'name' => 'restore_any_product::tag',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:26',
                 'updated_at' => '2024-09-04 14:12:26',
-            ],
-            126 => [
+            ),
+            126 => 
+            array (
                 'id' => 127,
                 'name' => 'replicate_product::tag',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:26',
                 'updated_at' => '2024-09-04 14:12:26',
-            ],
-            127 => [
+            ),
+            127 => 
+            array (
                 'id' => 128,
                 'name' => 'reorder_product::tag',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:26',
                 'updated_at' => '2024-09-04 14:12:26',
-            ],
-            128 => [
+            ),
+            128 => 
+            array (
                 'id' => 129,
                 'name' => 'delete_product::tag',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:27',
                 'updated_at' => '2024-09-04 14:12:27',
-            ],
-            129 => [
+            ),
+            129 => 
+            array (
                 'id' => 130,
                 'name' => 'delete_any_product::tag',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:27',
                 'updated_at' => '2024-09-04 14:12:27',
-            ],
-            130 => [
+            ),
+            130 => 
+            array (
                 'id' => 131,
                 'name' => 'force_delete_product::tag',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:27',
                 'updated_at' => '2024-09-04 14:12:27',
-            ],
-            131 => [
+            ),
+            131 => 
+            array (
                 'id' => 132,
                 'name' => 'force_delete_any_product::tag',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:27',
                 'updated_at' => '2024-09-04 14:12:27',
-            ],
-            132 => [
+            ),
+            132 => 
+            array (
                 'id' => 133,
                 'name' => 'view_simple::product',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:27',
                 'updated_at' => '2024-09-04 14:12:27',
-            ],
-            133 => [
+            ),
+            133 => 
+            array (
                 'id' => 134,
                 'name' => 'view_any_simple::product',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:27',
                 'updated_at' => '2024-09-04 14:12:27',
-            ],
-            134 => [
+            ),
+            134 => 
+            array (
                 'id' => 135,
                 'name' => 'create_simple::product',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:28',
                 'updated_at' => '2024-09-04 14:12:28',
-            ],
-            135 => [
+            ),
+            135 => 
+            array (
                 'id' => 136,
                 'name' => 'update_simple::product',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:28',
                 'updated_at' => '2024-09-04 14:12:28',
-            ],
-            136 => [
+            ),
+            136 => 
+            array (
                 'id' => 137,
                 'name' => 'restore_simple::product',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:28',
                 'updated_at' => '2024-09-04 14:12:28',
-            ],
-            137 => [
+            ),
+            137 => 
+            array (
                 'id' => 138,
                 'name' => 'restore_any_simple::product',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:28',
                 'updated_at' => '2024-09-04 14:12:28',
-            ],
-            138 => [
+            ),
+            138 => 
+            array (
                 'id' => 139,
                 'name' => 'replicate_simple::product',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:29',
                 'updated_at' => '2024-09-04 14:12:29',
-            ],
-            139 => [
+            ),
+            139 => 
+            array (
                 'id' => 140,
                 'name' => 'reorder_simple::product',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:29',
                 'updated_at' => '2024-09-04 14:12:29',
-            ],
-            140 => [
+            ),
+            140 => 
+            array (
                 'id' => 141,
                 'name' => 'delete_simple::product',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:29',
                 'updated_at' => '2024-09-04 14:12:29',
-            ],
-            141 => [
+            ),
+            141 => 
+            array (
                 'id' => 142,
                 'name' => 'delete_any_simple::product',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:30',
                 'updated_at' => '2024-09-04 14:12:30',
-            ],
-            142 => [
+            ),
+            142 => 
+            array (
                 'id' => 143,
                 'name' => 'force_delete_simple::product',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:30',
                 'updated_at' => '2024-09-04 14:12:30',
-            ],
-            143 => [
+            ),
+            143 => 
+            array (
                 'id' => 144,
                 'name' => 'force_delete_any_simple::product',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:30',
                 'updated_at' => '2024-09-04 14:12:30',
-            ],
-            144 => [
+            ),
+            144 => 
+            array (
                 'id' => 145,
                 'name' => 'page_EditProfile',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:30',
                 'updated_at' => '2024-09-04 14:12:30',
-            ],
-            145 => [
+            ),
+            145 => 
+            array (
                 'id' => 146,
                 'name' => 'page_PersonalAccessTokensPage',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:31',
                 'updated_at' => '2024-09-04 14:12:31',
-            ],
-            146 => [
+            ),
+            146 => 
+            array (
                 'id' => 147,
                 'name' => 'page_UpdateProfileInformationPage',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:12:31',
                 'updated_at' => '2024-09-04 14:12:31',
-            ],
-            147 => [
+            ),
+            147 => 
+            array (
                 'id' => 148,
                 'name' => 'view_coupon',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:20:23',
                 'updated_at' => '2024-09-04 14:20:23',
-            ],
-            148 => [
+            ),
+            148 => 
+            array (
                 'id' => 149,
                 'name' => 'view_any_coupon',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:20:23',
                 'updated_at' => '2024-09-04 14:20:23',
-            ],
-            149 => [
+            ),
+            149 => 
+            array (
                 'id' => 150,
                 'name' => 'create_coupon',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:20:23',
                 'updated_at' => '2024-09-04 14:20:23',
-            ],
-            150 => [
+            ),
+            150 => 
+            array (
                 'id' => 151,
                 'name' => 'update_coupon',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:20:23',
                 'updated_at' => '2024-09-04 14:20:23',
-            ],
-            151 => [
+            ),
+            151 => 
+            array (
                 'id' => 152,
                 'name' => 'restore_coupon',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:20:23',
                 'updated_at' => '2024-09-04 14:20:23',
-            ],
-            152 => [
+            ),
+            152 => 
+            array (
                 'id' => 153,
                 'name' => 'restore_any_coupon',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:20:24',
                 'updated_at' => '2024-09-04 14:20:24',
-            ],
-            153 => [
+            ),
+            153 => 
+            array (
                 'id' => 154,
                 'name' => 'replicate_coupon',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:20:24',
                 'updated_at' => '2024-09-04 14:20:24',
-            ],
-            154 => [
+            ),
+            154 => 
+            array (
                 'id' => 155,
                 'name' => 'reorder_coupon',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:20:24',
                 'updated_at' => '2024-09-04 14:20:24',
-            ],
-            155 => [
+            ),
+            155 => 
+            array (
                 'id' => 156,
                 'name' => 'delete_coupon',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:20:24',
                 'updated_at' => '2024-09-04 14:20:24',
-            ],
-            156 => [
+            ),
+            156 => 
+            array (
                 'id' => 157,
                 'name' => 'delete_any_coupon',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:20:24',
                 'updated_at' => '2024-09-04 14:20:24',
-            ],
-            157 => [
+            ),
+            157 => 
+            array (
                 'id' => 158,
                 'name' => 'force_delete_coupon',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:20:24',
                 'updated_at' => '2024-09-04 14:20:24',
-            ],
-            158 => [
+            ),
+            158 => 
+            array (
                 'id' => 159,
                 'name' => 'force_delete_any_coupon',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:20:24',
                 'updated_at' => '2024-09-04 14:20:24',
-            ],
-            159 => [
+            ),
+            159 => 
+            array (
                 'id' => 160,
                 'name' => 'view_store',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:20:25',
                 'updated_at' => '2024-09-04 14:20:25',
-            ],
-            160 => [
+            ),
+            160 => 
+            array (
                 'id' => 161,
                 'name' => 'view_any_store',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:20:25',
                 'updated_at' => '2024-09-04 14:20:25',
-            ],
-            161 => [
+            ),
+            161 => 
+            array (
                 'id' => 162,
                 'name' => 'create_store',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:20:25',
                 'updated_at' => '2024-09-04 14:20:25',
-            ],
-            162 => [
+            ),
+            162 => 
+            array (
                 'id' => 163,
                 'name' => 'update_store',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:20:25',
                 'updated_at' => '2024-09-04 14:20:25',
-            ],
-            163 => [
+            ),
+            163 => 
+            array (
                 'id' => 164,
                 'name' => 'restore_store',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:20:25',
                 'updated_at' => '2024-09-04 14:20:25',
-            ],
-            164 => [
+            ),
+            164 => 
+            array (
                 'id' => 165,
                 'name' => 'restore_any_store',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:20:25',
                 'updated_at' => '2024-09-04 14:20:25',
-            ],
-            165 => [
+            ),
+            165 => 
+            array (
                 'id' => 166,
                 'name' => 'replicate_store',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:20:26',
                 'updated_at' => '2024-09-04 14:20:26',
-            ],
-            166 => [
+            ),
+            166 => 
+            array (
                 'id' => 167,
                 'name' => 'reorder_store',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:20:26',
                 'updated_at' => '2024-09-04 14:20:26',
-            ],
-            167 => [
+            ),
+            167 => 
+            array (
                 'id' => 168,
                 'name' => 'delete_store',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:20:26',
                 'updated_at' => '2024-09-04 14:20:26',
-            ],
-            168 => [
+            ),
+            168 => 
+            array (
                 'id' => 169,
                 'name' => 'delete_any_store',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:20:26',
                 'updated_at' => '2024-09-04 14:20:26',
-            ],
-            169 => [
+            ),
+            169 => 
+            array (
                 'id' => 170,
                 'name' => 'force_delete_store',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:20:26',
                 'updated_at' => '2024-09-04 14:20:26',
-            ],
-            170 => [
+            ),
+            170 => 
+            array (
                 'id' => 171,
                 'name' => 'force_delete_any_store',
                 'guard_name' => 'web',
                 'created_at' => '2024-09-04 14:20:26',
                 'updated_at' => '2024-09-04 14:20:26',
-            ],
-            171 => [
-                'id' => 172,
-                'name' => 'view_article',
-                'guard_name' => 'web',
-                'created_at' => '2024-09-04 14:20:26',
-                'updated_at' => '2024-09-04 14:20:26',
-            ],
-            172 => [
-                'id' => 173,
-                'name' => 'view_any_article',
-                'guard_name' => 'web',
-                'created_at' => '2024-09-04 14:20:26',
-                'updated_at' => '2024-09-04 14:20:26',
-            ],
-            173 => [
-                'id' => 174,
-                'name' => 'create_article',
-                'guard_name' => 'web',
-                'created_at' => '2024-09-04 14:20:26',
-                'updated_at' => '2024-09-04 14:20:26',
-            ],
-            174 => [
-                'id' => 175,
-                'name' => 'update_article',
-                'guard_name' => 'web',
-                'created_at' => '2024-09-04 14:20:26',
-                'updated_at' => '2024-09-04 14:20:26',
-            ],
-            175 => [
-                'id' => 176,
-                'name' => 'restore_article',
-                'guard_name' => 'web',
-                'created_at' => '2024-09-04 14:20:26',
-                'updated_at' => '2024-09-04 14:20:26',
-            ],
-            176 => [
-                'id' => 177,
-                'name' => 'restore_any_article',
-                'guard_name' => 'web',
-                'created_at' => '2024-09-04 14:20:26',
-                'updated_at' => '2024-09-04 14:20:26',
-            ],
-            177 => [
-                'id' => 178,
-                'name' => 'replicate_article',
-                'guard_name' => 'web',
-                'created_at' => '2024-09-04 14:20:26',
-                'updated_at' => '2024-09-04 14:20:26',
-            ],
-            178 => [
-                'id' => 179,
-                'name' => 'reorder_article',
-                'guard_name' => 'web',
-                'created_at' => '2024-09-04 14:20:26',
-                'updated_at' => '2024-09-04 14:20:26',
-            ],
-            179 => [
-                'id' => 180,
-                'name' => 'delete_article',
-                'guard_name' => 'web',
-                'created_at' => '2024-09-04 14:20:26',
-                'updated_at' => '2024-09-04 14:20:26',
-            ],
-            180 => [
-                'id' => 181,
-                'name' => 'delete_any_article',
-                'guard_name' => 'web',
-                'created_at' => '2024-09-04 14:20:26',
-                'updated_at' => '2024-09-04 14:20:26',
-            ],
-            181 => [
-                'id' => 182,
-                'name' => 'force_delete_article',
-                'guard_name' => 'web',
-                'created_at' => '2024-09-04 14:20:26',
-                'updated_at' => '2024-09-04 14:20:26',
-            ],
-            182 => [
-                'id' => 183,
-                'name' => 'force_delete_any_article',
-                'guard_name' => 'web',
-                'created_at' => '2024-09-04 14:20:26',
-                'updated_at' => '2024-09-04 14:20:26',
-            ],
-            183 => [
-                'id' => 184,
-                'name' => 'view_product::collection',
-                'guard_name' => 'web',
-                'created_at' => '2024-09-04 14:20:26',
-                'updated_at' => '2024-09-04 14:20:26',
-            ],
-            184 => [
-                'id' => 185,
-                'name' => 'view_any_product::collection',
-                'guard_name' => 'web',
-                'created_at' => '2024-09-04 14:20:26',
-                'updated_at' => '2024-09-04 14:20:26',
-            ],
-            185 => [
-                'id' => 186,
-                'name' => 'create_product::collection',
-                'guard_name' => 'web',
-                'created_at' => '2024-09-04 14:20:26',
-                'updated_at' => '2024-09-04 14:20:26',
-            ],
-            186 => [
-                'id' => 187,
-                'name' => 'update_product::collection',
-                'guard_name' => 'web',
-                'created_at' => '2024-09-04 14:20:26',
-                'updated_at' => '2024-09-04 14:20:26',
-            ],
-            187 => [
-                'id' => 188,
-                'name' => 'restore_product::collection',
-                'guard_name' => 'web',
-                'created_at' => '2024-09-04 14:20:26',
-                'updated_at' => '2024-09-04 14:20:26',
-            ],
-            188 => [
-                'id' => 189,
-                'name' => 'restore_any_product::collection',
-                'guard_name' => 'web',
-                'created_at' => '2024-09-04 14:20:26',
-                'updated_at' => '2024-09-04 14:20:26',
-            ],
-            189 => [
-                'id' => 190,
-                'name' => 'replicate_product::collection',
-                'guard_name' => 'web',
-                'created_at' => '2024-09-04 14:20:26',
-                'updated_at' => '2024-09-04 14:20:26',
-            ],
-            190 => [
-                'id' => 191,
-                'name' => 'reorder_product::collection',
-                'guard_name' => 'web',
-                'created_at' => '2024-09-04 14:20:26',
-                'updated_at' => '2024-09-04 14:20:26',
-            ],
-            191 => [
-                'id' => 192,
-                'name' => 'delete_product::collection',
-                'guard_name' => 'web',
-                'created_at' => '2024-09-04 14:20:26',
-                'updated_at' => '2024-09-04 14:20:26',
-            ],
-            192 => [
-                'id' => 193,
-                'name' => 'delete_any_product::collection',
-                'guard_name' => 'web',
-                'created_at' => '2024-09-04 14:20:26',
-                'updated_at' => '2024-09-04 14:20:26',
-            ],
-            193 => [
-                'id' => 194,
-                'name' => 'force_delete_product::collection',
-                'guard_name' => 'web',
-                'created_at' => '2024-09-04 14:20:26',
-                'updated_at' => '2024-09-04 14:20:26',
-            ],
-            194 => [
-                'id' => 195,
-                'name' => 'force_delete_any_product::collection',
-                'guard_name' => 'web',
-                'created_at' => '2024-09-04 14:20:26',
-                'updated_at' => '2024-09-04 14:20:26',
-            ],
-            // FacebookConnection has no soft deletes, so no restore/force-delete
-            // pair, and it is never reordered or replicated.
-            195 => [
-                'id' => 196,
-                'name' => 'view_facebook::connection',
-                'guard_name' => 'web',
-                'created_at' => '2026-08-17 00:00:00',
-                'updated_at' => '2026-08-17 00:00:00',
-            ],
-            196 => [
-                'id' => 197,
-                'name' => 'view_any_facebook::connection',
-                'guard_name' => 'web',
-                'created_at' => '2026-08-17 00:00:00',
-                'updated_at' => '2026-08-17 00:00:00',
-            ],
-            197 => [
-                'id' => 198,
-                'name' => 'create_facebook::connection',
-                'guard_name' => 'web',
-                'created_at' => '2026-08-17 00:00:00',
-                'updated_at' => '2026-08-17 00:00:00',
-            ],
-            198 => [
-                'id' => 199,
-                'name' => 'update_facebook::connection',
-                'guard_name' => 'web',
-                'created_at' => '2026-08-17 00:00:00',
-                'updated_at' => '2026-08-17 00:00:00',
-            ],
-            199 => [
-                'id' => 200,
-                'name' => 'delete_facebook::connection',
-                'guard_name' => 'web',
-                'created_at' => '2026-08-17 00:00:00',
-                'updated_at' => '2026-08-17 00:00:00',
-            ],
-            200 => [
-                'id' => 201,
-                'name' => 'delete_any_facebook::connection',
-                'guard_name' => 'web',
-                'created_at' => '2026-08-17 00:00:00',
-                'updated_at' => '2026-08-17 00:00:00',
-            ],
-        ]);
+            ),
+        ));
 
         app()[PermissionRegistrar::class]->forgetCachedPermissions();
     }

@@ -2,7 +2,7 @@
 
 namespace App\Models;
 
-use App\Jobs\SyncProductToFacebookCatalog;
+use App\Traits\IsTenantModel;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class ProductVariant extends Model
 {
     use HasFactory;
+    use IsTenantModel;
 
     protected $fillable = [
         'product_id',
@@ -38,6 +39,9 @@ class ProductVariant extends Model
     ];
 
     protected $casts = [
+        'active' => 'boolean',
+        'options' => 'array',
+        'version' => 'integer',
         'price' => 'decimal:2',
         'compare_at_price' => 'decimal:2',
         'inventory_quantity' => 'integer',
@@ -48,19 +52,6 @@ class ProductVariant extends Model
         'requires_shipping' => 'boolean',
         'position' => 'integer',
     ];
-
-    protected static function booted(): void
-    {
-        // A price or stock edit re-pushes the parent Product's variant items.
-        // Query-level decrements bypass this, same as the Product path.
-        static::saved(function (ProductVariant $variant) {
-            $product = $variant->product;
-
-            if ($product && $product->list_on_facebook) {
-                SyncProductToFacebookCatalog::dispatch($product->id);
-            }
-        });
-    }
 
     public function product(): BelongsTo
     {

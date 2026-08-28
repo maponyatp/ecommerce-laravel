@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Http\Controllers\Api\Concerns\OwnsTeamResources;
 use App\Http\Controllers\Controller;
 use App\Models\Product;
 use Illuminate\Http\JsonResponse;
@@ -11,8 +10,6 @@ use Illuminate\Support\Facades\Validator;
 
 class ProductController extends Controller
 {
-    use OwnsTeamResources;
-
     /**
      * Display a paginated listing of products.
      */
@@ -24,16 +21,19 @@ class ProductController extends Controller
         $query = Product::query();
 
         // Apply search filter if provided
-        if ($request->filled('search')) {
-            // The value is a bound parameter (injection-safe already); escape only
-            // the LIKE wildcards so a literal % / _ can't match everything.
-            $search = addcslashes(trim($request->input('search')), '%_\\');
+        if ($request->has('search')) {
+            $search = $request->input('search');
+            // Sanitize search input to prevent SQL injection
+            $search = strip_tags($search);
+            $search = preg_replace('/[^\w\s\-]/', '', $search);
 
-            $query->where(function ($q) use ($search) {
-                $q->where('name', 'like', '%'.$search.'%')
-                    ->orWhere('description', 'like', '%'.$search.'%')
-                    ->orWhere('short_description', 'like', '%'.$search.'%');
-            });
+            if (! empty($search)) {
+                $query->where(function ($q) use ($search) {
+                    $q->where('name', 'like', '%'.$search.'%')
+                        ->orWhere('description', 'like', '%'.$search.'%')
+                        ->orWhere('short_description', 'like', '%'.$search.'%');
+                });
+            }
         }
 
         // Apply category filter if provided
@@ -50,13 +50,12 @@ class ProductController extends Controller
             $query->where('price', '<=', $request->input('price_max'));
         }
 
-        // Apply sorting — whitelist the column AND clamp the direction (orderBy()
-        // throws on anything but asc/desc, which 500'd the endpoint).
+        // Apply sorting
         $sortBy = $request->input('sort_by', 'created_at');
-        $sortOrder = strtolower($request->input('sort_order', 'desc')) === 'asc' ? 'asc' : 'desc';
+        $sortOrder = $request->input('sort_order', 'desc');
 
         $allowedSortFields = ['name', 'price', 'created_at', 'updated_at'];
-        if (in_array($sortBy, $allowedSortFields, true)) {
+        if (in_array($sortBy, $allowedSortFields)) {
             $query->orderBy($sortBy, $sortOrder);
         }
 
@@ -96,8 +95,6 @@ class ProductController extends Controller
      */
     public function store(Request $request): JsonResponse
     {
-        abort_unless($request->user()?->hasRole(['super_admin', 'admin']), 403);
-
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
@@ -127,13 +124,7 @@ class ProductController extends Controller
             ], 422);
         }
 
-        $attributes = $validator->validated();
-
-        if ($teamId = $this->creationTeamId($request)) {
-            $attributes['team_id'] = $teamId;
-        }
-
-        $product = Product::create($attributes);
+        $product = Product::create($validator->validated());
 
         return response()->json([
             'success' => true,
@@ -147,8 +138,6 @@ class ProductController extends Controller
      */
     public function update(Request $request, int $id): JsonResponse
     {
-        abort_unless($request->user()?->hasRole(['super_admin', 'admin']), 403);
-
         $product = Product::find($id);
 
         if (! $product) {
@@ -157,8 +146,6 @@ class ProductController extends Controller
                 'message' => 'Product not found',
             ], 404);
         }
-
-        $this->assertActorOwns($request, $product);
 
         $validator = Validator::make($request->all(), [
             'name' => 'sometimes|required|string|max:255',
@@ -189,6 +176,10 @@ class ProductController extends Controller
             ], 422);
         }
 
+        if ($request->exists('inventory_count')) {
+            return response()->json(['success' => false, 'errors' => ['inventory_count' => ['Use the dedicated inventory adjustment workflow; product edits cannot overwrite live stock.']]], 422);
+        }
+
         $product->update($validator->validated());
 
         return response()->json([
@@ -201,10 +192,8 @@ class ProductController extends Controller
     /**
      * Soft delete the specified product.
      */
-    public function destroy(Request $request, int $id): JsonResponse
+    public function destroy(int $id): JsonResponse
     {
-        abort_unless($request->user()?->hasRole(['super_admin', 'admin']), 403);
-
         $product = Product::find($id);
 
         if (! $product) {
@@ -213,8 +202,6 @@ class ProductController extends Controller
                 'message' => 'Product not found',
             ], 404);
         }
-
-        $this->assertActorOwns($request, $product);
 
         $product->delete();
 
