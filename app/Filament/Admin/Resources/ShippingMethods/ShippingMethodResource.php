@@ -40,10 +40,10 @@ class ShippingMethodResource extends Resource
                     ->helperText('Deactivate instead of deleting to preserve historical orders.'),
                 Toggle::make('requires_delivery_slot')->label('Require a delivery window')->default(false)
                     ->helperText('Create and publish windows in Delivery calendar first. With no available windows, customers cannot use this method. Capacity is per order, not per bouquet.'),
-                TextInput::make('base_rate')->label('Base rate ('.StoreMoney::currency().')')->numeric()->required()->minValue(0)->maxValue(999999.99),
-                TextInput::make('weight_rate')->label('Rate per catalogue weight unit')->numeric()->required()->minValue(0)->maxValue(999999.99)->default(0)
+                TextInput::make('base_rate')->label('Base rate ('.StoreMoney::currency().')')->numeric()->required()->minValue(0)->maxValue(999999.99)->rule('decimal:0,2'),
+                TextInput::make('weight_rate')->label('Rate per catalogue weight unit')->numeric()->required()->minValue(0)->maxValue(999999.99)->rule('decimal:0,2')->default(0)
                     ->helperText('Use the same weight unit configured on your products.'),
-                TextInput::make('max_weight')->label('Maximum total weight')->numeric()->required()->minValue(0)->maxValue(999999),
+                TextInput::make('max_weight')->label('Maximum total weight')->numeric()->required()->minValue(0)->maxValue(999999.99)->rule('decimal:0,2'),
                 TagsInput::make('postal_codes')->label('Allowed South African postal codes')->nestedRecursiveRules(['string', 'regex:/^[0-9]{4}$/'])
                     ->helperText('Enter exact four-digit codes, including leading zeros. Empty means all South African postal codes; no overseas shipping is enabled.')->columnSpanFull(),
             ])->columns(2),

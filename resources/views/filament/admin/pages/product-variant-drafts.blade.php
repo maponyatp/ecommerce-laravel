@@ -44,7 +44,7 @@
                     @else<p class="mt-2 text-sm text-gray-600">Draft did not exist.</p>@endif
                 </div>@endforeach</div>
             </details>@endforeach</div>
-            <div class="mt-4">{{ $changes->links() }}</div>
+            <div class="mt-4">{{ $changes->links('filament.admin.partials.pagination', ['url' => \App\Filament\Admin\Pages\ProductVariantDrafts::getUrl()]) }}</div>
         </x-filament::section>
     @else
         <x-filament::section heading="{{ $product ? 'Draft catalogue' : 'Choose a product' }}">
@@ -65,7 +65,7 @@
                     @endif
                 </tbody>
             </table></div>
-            <div class="mt-4">{{ ($product ? $drafts : $products)->links() }}</div>
+            <div class="mt-4">{{ ($product ? $drafts : $products)->links('filament.admin.partials.pagination', ['url' => \App\Filament\Admin\Pages\ProductVariantDrafts::getUrl()]) }}</div>
         </x-filament::section>
     @endif
 </x-filament-panels::page>

@@ -19,5 +19,5 @@
     @empty
         <p style="margin-top:1rem;font-size:.875rem">No managed revisions yet. Existing content is preserved when you first save or publish.</p>
     @endforelse
-    <div style="margin-top:1rem">{{ $history->links() }}</div>
+    <div style="margin-top:1rem">{{ $history->links('filament.admin.partials.pagination', ['url' => \App\Filament\Admin\Resources\Pages\PageResource::getUrl('edit', ['record' => $page])]) }}</div>
 </div>

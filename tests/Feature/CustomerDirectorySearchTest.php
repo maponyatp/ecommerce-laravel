@@ -145,10 +145,16 @@ class CustomerDirectorySearchTest extends TestCase
         for ($i = 0; $i < 26; $i++) {
             $this->profile($this->order(['customer_email' => 'contact'.$i.'@example.test']), ['preferred_name' => 'Orchid buyer '.$i]);
         }
-        $this->get($this->url(['search' => 'Orchid buyer', 'label' => 'orchids', 'kind' => 'guest']))
+        $response = $this->get($this->url(['search' => 'Orchid buyer', 'label' => 'orchids', 'kind' => 'guest']))
             ->assertOk()->assertSee('26 purchase contact groups')->assertDontSee('contact0@example.test')
             ->assertSee('label=orchids', false)->assertSee('kind=guest', false);
-        $this->get($this->url(['search' => 'Orchid buyer', 'label' => 'orchids', 'kind' => 'guest', 'contacts_page' => 2]))
+        $html = new \DOMDocument;
+        @$html->loadHTML($response->getContent());
+        $next = (new \DOMXPath($html))->query('//a[@rel="next"]')->item(0)?->getAttribute('href');
+        $this->assertNotEmpty($next, 'Pagination must be a usable GET link, not an unbound Livewire action.');
+        parse_str(parse_url($next, PHP_URL_QUERY), $query);
+        $this->assertSame(['search' => 'Orchid buyer', 'label' => 'orchids', 'kind' => 'guest', 'contacts_page' => '2'], $query);
+        $this->get($next)
             ->assertOk()->assertSee('contact0@example.test');
     }
 

@@ -37,7 +37,7 @@
                     @endforeach</div>
                 </details>
             @empty<p class="text-sm text-gray-500">No recorded audit history.</p>@endforelse
-            {{ $changes->links() }}
+            {{ $changes->links('filament.admin.partials.pagination', ['url' => \App\Filament\Admin\Pages\Returns::getUrl()]) }}
         </x-filament::section>
     @else
         <x-filament::section heading="Return requests">
@@ -50,7 +50,7 @@
                 <thead><tr><th class="p-3">Return</th><th class="p-3">Order / buyer</th><th class="p-3">Status</th><th class="p-3">Action</th></tr></thead>
                 <tbody>@forelse($returns as $row)<tr class="border-t border-gray-200"><td class="p-3 break-all">{{ $row->rma_number }}</td><td class="p-3">#{{ $row->order_id }}<br>{{ $row->order?->customer_email }}</td><td class="p-3">{{ \App\Services\ReturnManagementService::STATUSES[$row->status] ?? $row->status }}</td><td class="p-3"><x-filament::link href="{{ \App\Filament\Admin\Pages\Returns::getUrl(['order' => $row->order_id, 'return' => $row->id]) }}">Review #{{ $row->id }}</x-filament::link></td></tr>@empty<tr><td colspan="4" class="p-6 text-gray-500">No return requests match. Open an order above to record a request.</td></tr>@endforelse</tbody>
             </table></div>
-            <div class="mt-4">{{ $returns->links() }}</div>
+            <div class="mt-4">{{ $returns->links('filament.admin.partials.pagination', ['url' => \App\Filament\Admin\Pages\Returns::getUrl(), 'context' => ['order' => $this->orderId, 'return' => $this->returnId]]) }}</div>
         </x-filament::section>
     @endif
 </x-filament-panels::page>

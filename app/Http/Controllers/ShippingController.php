@@ -16,10 +16,10 @@ class ShippingController extends Controller
     {
         $validatedData = $request->validate([
             'name' => 'required|string|max:255',
-            'description' => 'nullable|string',
-            'base_rate' => 'required|numeric|min:0',
-            'weight_rate' => 'nullable|numeric|min:0',
-            'max_weight' => 'nullable|numeric|min:0',
+            'description' => 'nullable|string|max:2000',
+            'base_rate' => 'required|numeric|min:0|max:999999.99|decimal:0,2',
+            'weight_rate' => 'nullable|numeric|min:0|max:999999.99|decimal:0,2',
+            'max_weight' => 'nullable|numeric|min:0|max:999999.99|decimal:0,2',
             'estimated_delivery_time' => 'required|string|max:255',
             'is_active' => 'nullable|boolean',
         ]);
@@ -36,10 +36,10 @@ class ShippingController extends Controller
     {
         $validatedData = $request->validate([
             'name' => 'required|string|max:255',
-            'description' => 'nullable|string',
-            'base_rate' => 'required|numeric|min:0',
-            'weight_rate' => 'nullable|numeric|min:0',
-            'max_weight' => 'nullable|numeric|min:0',
+            'description' => 'nullable|string|max:2000',
+            'base_rate' => 'required|numeric|min:0|max:999999.99|decimal:0,2',
+            'weight_rate' => 'nullable|numeric|min:0|max:999999.99|decimal:0,2',
+            'max_weight' => 'nullable|numeric|min:0|max:999999.99|decimal:0,2',
             'estimated_delivery_time' => 'required|string|max:255',
             'is_active' => 'nullable|boolean',
         ]);

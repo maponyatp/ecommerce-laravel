@@ -13,6 +13,9 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   phpcpd:
     name: PHP Copy/Paste Detection
@@ -107,4 +110,11 @@ jobs:
           php-version: '8.5'
 
       - name: Run Composer security audit
-        run: composer audit --no-interaction
+        run: composer audit --locked --no-interaction
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Audit locked frontend dependencies
+        run: npm audit --package-lock-only --audit-level=low

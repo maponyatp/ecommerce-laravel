@@ -36,7 +36,7 @@
                         <td style="padding:.8rem"><x-filament::badge color="{{ ! $row->active ? 'gray' : ($row->available <= $row->threshold ? 'warning' : 'success') }}">{{ ! $row->active ? 'Paused' : ($row->available == 0 ? 'Out of stock' : ($row->available <= $row->threshold ? 'Low stock' : 'In stock')) }}</x-filament::badge></td>
                         <td style="padding:.8rem"><x-filament::link :href="\App\Filament\Admin\Pages\Inventory::getUrl(['product' => $row->product_id, 'variant' => $row->variant_id])" :aria-label="'Manage stock for '.$row->name.' '.$row->option_title">Manage stock</x-filament::link></td>
                     </tr>@empty<tr><td colspan="7" style="padding:2rem;text-align:center">No stock units match this view. Clear the filters or add products and publish their options.</td></tr>@endforelse
-                </tbody></table></div><div style="margin-top:1rem">{{ $rows->links() }}</div>
+                </tbody></table></div><div style="margin-top:1rem">{{ $rows->links('filament.admin.partials.pagination', ['url' => \App\Filament\Admin\Pages\Inventory::getUrl(), 'context' => ['product' => $this->productId, 'variant' => $this->variantId, 'search' => $this->search, 'status' => $this->status]]) }}</div>
             </x-filament::section>
         @endif
         @if($history)
@@ -46,7 +46,7 @@
                     <p style="font-size:.875rem;margin-top:.35rem">{{ $entry->old_quantity ?? 'Not recorded' }} → {{ $entry->new_quantity ?? 'Not recorded' }} on hand · {{ $entry->created_at->timezone(config('commerce.delivery_timezone'))->format('d M Y H:i') }} (South Africa)</p>
                     <p style="font-size:.875rem;color:#64748b">{{ $entry->reference_type === \App\Models\User::class ? ($actors[$entry->reference_id] ?? 'Staff account unavailable') : ($entry->reference_type === \App\Models\Order::class ? 'Order #'.$entry->reference_id : 'Legacy / system entry') }}</p>
                 </article>@empty<p>No stock movements recorded yet.</p>@endforelse
-                <div style="margin-top:1rem">{{ $history->links() }}</div>
+                <div style="margin-top:1rem">{{ $history->links('filament.admin.partials.pagination', ['url' => \App\Filament\Admin\Pages\Inventory::getUrl(), 'context' => ['product' => $this->productId, 'variant' => $this->variantId, 'search' => $this->search, 'status' => $this->status]]) }}</div>
             </x-filament::section>
         @endif
     </div>

@@ -7,7 +7,7 @@
     <x-filament::section heading="IP rule history">
         <div class="overflow-x-auto"><table class="w-full text-left text-sm"><thead><tr><th class="p-3">Address</th><th class="p-3">Reason</th><th class="p-3">Status</th><th class="p-3">Expiry / revision</th></tr></thead>
             <tbody>@forelse($rules as $rule)<tr class="border-t border-gray-200"><td class="p-3">{{ $rule->ip_address }}</td><td class="p-3 break-words">{{ $rule->reason }}</td><td class="p-3">{{ $rule->revoked_at ? 'Revoked' : ($rule->expires_at?->isPast() ? 'Expired' : 'Active') }}</td><td class="p-3">{{ $rule->expires_at?->timezone('Africa/Johannesburg')->format('d M Y H:i') ?: 'No expiry' }} · v{{ $rule->version }}</td></tr>@empty<tr><td colspan="4" class="p-5 text-gray-500">No IP rules recorded.</td></tr>@endforelse</tbody></table></div>
-        {{ $rules->links() }}
+        {{ $rules->links('filament.admin.partials.pagination', ['url' => \App\Filament\Admin\Pages\StaffSecurity::getUrl()]) }}
     </x-filament::section>
     <x-filament::section heading="Staff security audit">
         <form method="GET" class="mb-4 flex flex-wrap items-end gap-3">
@@ -23,6 +23,6 @@
                 <td class="p-3">{{ $log->subject_type }} {{ $log->subject_id }}<br>{{ $log->method }} {{ $log->route_name }}</td>
                 <td class="p-3 break-words text-xs">{{ json_encode($log->details, JSON_UNESCAPED_SLASHES) }}</td>
             </tr>@empty<tr><td colspan="5" class="p-5 text-gray-500">No matching security events.</td></tr>@endforelse</tbody></table></div>
-        {{ $logs->links() }}
+        {{ $logs->links('filament.admin.partials.pagination', ['url' => \App\Filament\Admin\Pages\StaffSecurity::getUrl()]) }}
     </x-filament::section>
 </x-filament-panels::page>

@@ -19,16 +19,23 @@
             @foreach($wishlist as $item)
                 <div class="col-md-4 mb-3">
                     <div class="card">
-                        <img src="/images/placeholder.png" alt="{{ $item->product_name_snapshot ?? $item->product->name }}" class="card-img-top">
                         <div class="card-body">
-                            <h5 class="card-title">{{ $item->product_name_snapshot ?? $item->product->name }}</h5>
-                            <p class="card-text">{{ $item->product->description }}</p>
-                            <p class="card-text"><strong>Price:</strong> {{ $item->product->store_price_label }}</p>
+                            @if($item->product && ! $item->product->trashed())
+                                <img src="{{ $item->product->image_url }}" alt="{{ $item->product->name }}" class="card-img-top" loading="lazy">
+                                <h5 class="card-title">{{ $item->product->name }}</h5>
+                                <p class="card-text">{{ $item->product->description }}</p>
+                                <p class="card-text"><strong>Price:</strong> {{ $item->product->store_price_label }}</p>
+                            @else
+                                <h5 class="card-title">Product no longer available</h5>
+                                <p class="card-text">This item is not shown on your shared wishlist.</p>
+                            @endif
+                            @if($item->product)
                             <form action="{{ route('wishlist.remove', $item->product) }}" method="POST">
                                 @csrf
                                 @method('DELETE')
                                 <button type="submit" class="btn btn-danger">Remove from Wishlist</button>
                             </form>
+                            @endif
                         </div>
                     </div>
                 </div>

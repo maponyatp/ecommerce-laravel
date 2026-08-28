@@ -151,7 +151,7 @@ class InternationalStorefrontTest extends TestCase
         $url = URL::temporarySignedRoute('invoices.print', now()->addHour(), ['invoice' => $invoice]);
         $this->get($url)->assertOk()->assertSee('Currency: USD')->assertSee('USD 100.00')->assertDontSee('Currency: ZAR');
         $order->update(['currency' => null]);
-        $this->get($url)->assertOk()->assertSee('currency not recorded')->assertDontSee('ZAR 100.00');
+        $this->get($url)->assertOk()->assertSee('Currency not recorded')->assertDontSee('ZAR 100.00');
     }
 
     public function test_ikhokha_rejects_an_order_in_another_currency(): void

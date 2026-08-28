@@ -44,7 +44,7 @@
                     <p class="mt-3 whitespace-pre-wrap break-words text-sm">{{ $change->note }}</p>
                 </article>
             @empty<p class="text-sm text-gray-500">No recorded history.</p>@endforelse
-            {{ $changes->links() }}
+            {{ $changes->links('filament.admin.partials.pagination', ['url' => \App\Filament\Admin\Pages\Refunds::getUrl()]) }}
         </x-filament::section>
     @else
         <x-filament::section heading="Refund register">
@@ -67,7 +67,7 @@
                     <td class="p-3"><x-filament::link :href="\App\Filament\Admin\Pages\Refunds::getUrl(['order' => $row->order_id, 'refund' => $row->id])">Review #{{ $row->id }}</x-filament::link></td>
                 </tr>@empty<tr><td colspan="5" class="p-6 text-gray-500">No matching refunds. Open an order above to start a request.</td></tr>@endforelse</tbody>
             </table></div>
-            <div class="mt-4">{{ $refunds->links() }}</div>
+            <div class="mt-4">{{ $refunds->links('filament.admin.partials.pagination', ['url' => \App\Filament\Admin\Pages\Refunds::getUrl()]) }}</div>
         </x-filament::section>
     @endif
 </x-filament-panels::page>

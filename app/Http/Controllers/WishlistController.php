@@ -2,16 +2,26 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Wishlist;
+use App\Http\Middleware\PrivateCustomerDirectory;
 use App\Models\Product;
-use Illuminate\Http\Request;
+use App\Models\User;
+use App\Models\Wishlist;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 class WishlistController extends Controller
 {
+    public function __construct()
+    {
+        $this->middleware('auth')->except('sharedWishlist');
+        $this->middleware(PrivateCustomerDirectory::class);
+    }
+
     public function index()
     {
-        $wishlist = auth()->user()->wishlist()->with('product')->get();
+        // Owners can remove retired products without making those products public.
+        $wishlist = auth()->user()->wishlist()->with(['product' => fn ($query) => $query->withTrashed()])->get();
+
         return view('wishlist.index', compact('wishlist'));
     }
 
@@ -25,22 +35,29 @@ class WishlistController extends Controller
         return redirect()->back()->with('success', 'Product added to wishlist');
     }
 
-    public function remove(Product $product)
+    public function remove(string $product)
     {
-        auth()->user()->wishlist()->where('product_id', $product->id)->delete();
+        auth()->user()->wishlist()->whereHas('product', fn ($query) => $query->withTrashed()->where('slug', $product))
+            ->firstOrFail()->delete();
+
         return redirect()->back()->with('success', 'Product removed from wishlist');
     }
 
     public function share()
     {
         $shareToken = Str::random(32);
-        auth()->user()->wishlist()->update(['share_token' => $shareToken]);
+        DB::transaction(function () use ($shareToken) {
+            User::whereKey(auth()->id())->lockForUpdate()->firstOrFail();
+            auth()->user()->wishlist()->update(['share_token' => $shareToken]);
+        }, 3);
+
         return redirect()->route('wishlist.index')->with('share_url', route('wishlist.shared', $shareToken));
     }
 
     public function sharedWishlist($shareToken)
     {
-        $wishlist = Wishlist::where('share_token', $shareToken)->with('product')->get();
+        $wishlist = Wishlist::where('share_token', $shareToken)->whereHas('product')->with('product')->get();
+
         return view('wishlist.shared', compact('wishlist'));
     }
 }

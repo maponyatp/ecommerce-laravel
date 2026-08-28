@@ -23,7 +23,7 @@
                     </tr>
                 @empty<tr><td colspan="5" class="p-6 text-center text-gray-600">No purchase contacts match these filters.</td></tr>@endforelse</tbody>
             </table></div>
-            <div class="mt-4">{{ $contacts->links() }}</div>
+            <div class="mt-4">{{ $contacts->links('filament.admin.partials.pagination', ['url' => \App\Filament\Admin\Pages\CustomerDirectory::getUrl()]) }}</div>
         </x-filament::section>
     @else
         <x-filament::section heading="Purchase history">
@@ -46,7 +46,7 @@
                 <div class="space-y-4">@foreach($profileChanges as $change)<details class="rounded-lg border border-gray-200 p-4">
                     <summary class="cursor-pointer text-sm font-medium">Revision {{ $change->version }} · {{ $change->actor?->name ?? 'Staff account unavailable' }} · {{ $change->created_at->timezone(config('commerce.delivery_timezone'))->format('d M Y H:i') }} (South Africa)</summary>
                     <div class="mt-4 grid gap-4 md:grid-cols-2">@foreach(['before_values' => 'Before', 'after_values' => 'After'] as $field => $heading)<div class="min-w-0 text-sm"><h4 class="font-semibold">{{ $heading }}</h4><p class="mt-2 break-words">Name: {{ $change->{$field}['preferred_name'] ?: 'Not set' }}</p><p class="mt-2 break-words">Labels: {{ implode(', ', $change->{$field}['labels']) ?: 'None' }}</p><p class="mt-2 whitespace-pre-wrap break-words">Notes: {{ $change->{$field}['staff_notes'] ?: 'None' }}</p></div>@endforeach</div>
-                </details>@endforeach</div><div class="mt-4">{{ $profileChanges->links() }}</div>
+                </details>@endforeach</div><div class="mt-4">{{ $profileChanges->links('filament.admin.partials.pagination', ['url' => \App\Filament\Admin\Pages\CustomerDirectory::getUrl()]) }}</div>
             </x-filament::section>
         @endif
         <x-filament::section heading="Paid order totals by currency" description="Gross recorded paid-order totals, including order charges. Not net revenue, profit or a verified customer lifetime value; refunds and credit notes are not reconciled here.">
@@ -62,13 +62,13 @@
                     <td class="p-3">{{ str($order->payment_status)->replace('_', ' ')->title() }}<p class="text-xs">{{ str($order->shipping_status)->replace('_', ' ')->title() }}</p></td>
                     <td class="p-3">@can('update', $order)<x-filament::link href="{{ \App\Filament\Admin\Resources\Orders\OrderResource::getUrl('edit', ['record' => $order]) }}">Manage order #{{ $order->id }}</x-filament::link>@else<span class="text-gray-600">View-only access</span>@endcan</td>
                 </tr>@endforeach</tbody>
-            </table></div><div class="mt-4">{{ $orders->links() }}</div>
+            </table></div><div class="mt-4">{{ $orders->links('filament.admin.partials.pagination', ['url' => \App\Filament\Admin\Pages\CustomerDirectory::getUrl()]) }}</div>
         </x-filament::section>
         @if($cases !== null)<x-filament::section heading="Order support cases">
             <div class="overflow-x-auto"><table class="w-full text-left text-sm">
                 <thead><tr class="border-b border-gray-200"><th class="p-3">Case / order</th><th class="p-3">Category</th><th class="p-3">Status</th><th class="p-3">Action</th></tr></thead>
                 <tbody>@forelse($cases as $case)<tr class="border-b border-gray-200"><td class="p-3">Case #{{ $case->id }} · Order #{{ $case->order_id }}</td><td class="p-3">{{ \App\Models\OrderIssue::CATEGORIES[$case->category] ?? $case->category }}</td><td class="p-3">{{ \App\Models\OrderIssue::STATUSES[$case->status] ?? $case->status }}</td><td class="p-3">@can('update', $case)<x-filament::link href="{{ \App\Filament\Admin\Resources\OrderIssues\OrderIssueResource::getUrl('edit', ['record' => $case]) }}">Review case #{{ $case->id }}</x-filament::link>@endcan</td></tr>@empty<tr><td colspan="4" class="p-6 text-center text-gray-600">No support cases for these orders.</td></tr>@endforelse</tbody>
-            </table></div><div class="mt-4">{{ $cases->links() }}</div>
+            </table></div><div class="mt-4">{{ $cases->links('filament.admin.partials.pagination', ['url' => \App\Filament\Admin\Pages\CustomerDirectory::getUrl()]) }}</div>
         </x-filament::section>@endif
     @endif
 </x-filament-panels::page>

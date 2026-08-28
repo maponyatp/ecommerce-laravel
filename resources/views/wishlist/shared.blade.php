@@ -10,9 +10,9 @@
             @foreach($wishlist as $item)
                 <div class="col-md-4 mb-3">
                     <div class="card">
-                        <img src="/images/placeholder.png" alt="{{ $item->product_name_snapshot ?? $item->product->name }}" class="card-img-top">
+                        <img src="{{ $item->product->image_url }}" alt="{{ $item->product->name }}" class="card-img-top" loading="lazy">
                         <div class="card-body">
-                            <h5 class="card-title">{{ $item->product_name_snapshot ?? $item->product->name }}</h5>
+                            <h5 class="card-title">{{ $item->product->name }}</h5>
                             <p class="card-text">{{ $item->product->description }}</p>
                             <p class="card-text"><strong>Price:</strong> {{ $item->product->store_price_label }}</p>
                             <a href="{{ route('products.show', $item->product) }}" class="btn btn-primary">View Product</a>
