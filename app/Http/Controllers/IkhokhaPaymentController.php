@@ -6,6 +6,7 @@ use App\Models\Order;
 use App\Models\PaymentTransaction;
 use App\Services\OrderPaymentService;
 use App\Services\Payments\IkhokhaGateway;
+use App\Support\CustomerOrderStatus;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -71,16 +72,11 @@ class IkhokhaPaymentController extends Controller
 
     public function return(Request $request, Order $order): RedirectResponse
     {
-        if ($order->payment_status === 'paid') {
-            return redirect()->to($this->confirmationUrl($order))
-                ->with('success', 'Payment received. Your order is confirmed.');
-        }
+        // A browser return hint is not proof of payment success or cancellation.
+        $status = CustomerOrderStatus::describe($order);
 
-        $message = $request->query('result') === 'cancelled'
-            ? 'Payment was cancelled. Your cart is still available.'
-            : 'Payment is not confirmed yet. If you paid, refresh shortly while we verify it.';
-
-        return redirect()->to($this->confirmationUrl($order))->with('warning', $message);
+        return redirect()->to($this->confirmationUrl($order))
+            ->with($status['confirmed'] ? 'success' : 'warning', $status['message']);
     }
 
     private function confirmationUrl(Order $order): string

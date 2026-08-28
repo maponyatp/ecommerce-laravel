@@ -3,6 +3,7 @@
 namespace App\Notifications;
 
 use App\Models\Order;
+use App\Support\CustomerOrderStatus;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -37,17 +38,14 @@ class OrderConfirmationNotification extends Notification implements ShouldQueue
     public function toMail(object $notifiable): MailMessage
     {
         $order = $this->order;
+        $status = CustomerOrderStatus::describe($order);
 
         $mailMessage = (new MailMessage)
-            ->subject('Order Confirmation #'.$order->id)
-            ->greeting('Thank you for your order!')
-            ->line('Your order has been successfully placed.')
+            ->subject(($status['confirmed'] ? 'Order Confirmation' : 'Order update').' #'.$order->id)
+            ->greeting($status['confirmed'] ? 'Thank you for your order!' : $status['title'])
+            ->line($status['message'])
             ->line('Order Number: #'.$order->id)
             ->line('Total Amount: '.$order->formatMoney($order->total_amount));
-
-        if ($order->status === 'payment_received_stock_review') {
-            $mailMessage->line('Payment was received, but stock needs manual review. Please contact the store before making another payment.');
-        }
 
         if ($order->shipping_address) {
             $mailMessage->line('Shipping Address: '.$order->shipping_address);
@@ -55,14 +53,16 @@ class OrderConfirmationNotification extends Notification implements ShouldQueue
 
         if ($order->delivery_window_label) {
             $mailMessage->line('Requested delivery window: '.$order->delivery_window_label);
-            $mailMessage->line($order->deliveryBooking?->status === 'confirmed'
+            $mailMessage->line($status['confirmed'] && CustomerOrderStatus::hasConfirmedDeliveryBooking($order)
                 ? 'Delivery booking confirmed.'
                 : 'This delivery window is NOT confirmed. Contact the shop to arrange an available window; please do not pay again.');
         }
 
         if ($order->shippingMethod) {
-            $mailMessage->line('Shipping Method: '.$order->shippingMethod->name)
-                ->line('Estimated Delivery: '.$order->shippingMethod->estimated_delivery_time);
+            $mailMessage->line('Shipping Method: '.$order->shippingMethod->name);
+            if ($status['confirmed']) {
+                $mailMessage->line('Estimated Delivery: '.$order->shippingMethod->estimated_delivery_time);
+            }
         }
 
         // Add order items
@@ -76,7 +76,7 @@ class OrderConfirmationNotification extends Notification implements ShouldQueue
             return $item->product->is_downloadable ?? false;
         });
 
-        if ($hasDownloadable) {
+        if ($hasDownloadable && $status['confirmed']) {
             $mailMessage->line('Open your order details below to download your digital products. No account is needed when using this private email link.');
         }
 

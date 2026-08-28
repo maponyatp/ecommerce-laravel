@@ -3,33 +3,25 @@
 @section('title', 'Order Confirmation')
 
 @section('content')
+@php($customerStatus = \App\Support\CustomerOrderStatus::describe($order))
 <div class="container mx-auto px-4 py-12">
     <div class="max-w-2xl mx-auto">
-        @if(in_array($order->status, ['payment_received_stock_review', 'payment_received_delivery_review', 'payment_review', 'checkout_expired', 'cancelled'], true))
-            <div class="mb-6 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900" role="status">
-                @if($order->status === 'payment_received_stock_review')
-                    Payment was received, but your items need a stock review. Please contact the store before making another payment.
-                @elseif($order->status === 'payment_received_delivery_review')
-                    Payment was received, but your delivery window is not confirmed. Please contact the shop to agree an available window; do not pay again.
-                @elseif($order->status === 'checkout_expired')
-                    The stock reservation has expired. This does not cancel an external payment link. If you paid, contact the store before paying again.
-                @elseif($order->status === 'cancelled')
-                    This order is cancelled. Contact the store about any payment or refund; this page does not confirm a refund.
-                @else
-                    Payment needs verification. Please contact the store before starting another payment.
-                @endif
-            </div>
-        @elseif($order->payment_status === 'pending' && $order->stock_reserved_until)
+        @if($order->payment_status === 'pending' && $order->stock_reservation_status === 'held' && $order->stock_reserved_until?->isFuture() && ! in_array($order->status, ['cancelled', 'refunded', 'checkout_expired'], true))
             <p class="mb-4 text-sm text-gray-600">Stock is reserved until {{ $order->stock_reserved_until->format('d M Y H:i') }} ({{ config('app.timezone') }}). Payment after this time is subject to stock review.</p>
         @endif
         <div class="text-center mb-8">
-            <div class="inline-flex items-center justify-center w-16 h-16 {{ $order->payment_status === 'paid' ? 'bg-green-100' : 'bg-amber-100' }} rounded-full mb-4">
-                <svg class="w-8 h-8 {{ $order->payment_status === 'paid' ? 'text-green-600' : 'text-amber-600' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+            <div class="inline-flex items-center justify-center w-16 h-16 {{ $customerStatus['confirmed'] ? 'bg-green-100' : 'bg-amber-100' }} rounded-full mb-4">
+                <svg aria-hidden="true" class="w-8 h-8 {{ $customerStatus['confirmed'] ? 'text-green-600' : 'text-amber-600' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    @if($customerStatus['confirmed'])
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                    @else
+                        <circle cx="12" cy="12" r="9" stroke-width="2"></circle>
+                        <path stroke-linecap="round" stroke-width="2" d="M12 7v6m0 4h.01"></path>
+                    @endif
                 </svg>
             </div>
-            <h1 class="text-3xl font-bold text-gray-900 mb-2">{{ $order->payment_status === 'paid' ? (in_array($order->status, ['payment_received_delivery_review', 'payment_received_stock_review', 'cancelled'], true) ? 'Payment received — review required' : 'Order confirmed!') : ($order->payment_status === 'failed' ? 'Payment unsuccessful' : 'Payment pending') }}</h1>
-            <p class="text-gray-600">{{ $order->payment_status === 'paid' ? 'Thank you for your purchase. Your payment has been verified.' : ($order->payment_status === 'failed' ? 'The payment was not completed. Your cart has been kept so you can try again.' : 'Your order was received and will be confirmed after payment verification.') }}</p>
+            <h1 class="text-3xl font-bold text-gray-900 mb-2">{{ $customerStatus['title'] }}</h1>
+            <p class="text-gray-600" role="status">{{ $customerStatus['message'] }}</p>
         </div>
 
         <div class="bg-white border border-gray-200 rounded-lg shadow-sm p-6 mb-6">
@@ -49,7 +41,7 @@
                 </div>
                 <div>
                     <span class="text-gray-500">Status:</span>
-                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {{ $order->payment_status === 'paid' ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800' }} ml-1">
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {{ $customerStatus['confirmed'] ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800' }} ml-1">
                         {{ str($order->status)->replace('_', ' ')->title() }}
                     </span>
                 </div>
@@ -116,7 +108,7 @@
         <div class="flex flex-col sm:flex-row gap-4 justify-center">
             @if($order->invoice)
                 <a href="{{ URL::temporarySignedRoute('invoices.print', now()->addDays(30), ['invoice' => $order->invoice->id]) }}" class="text-white bg-gray-900 hover:bg-gray-800 font-medium rounded-lg px-6 py-3 text-center">View invoice</a>
-            @elseif($order->payment_status !== 'paid')
+            @elseif($customerStatus['refresh'])
                 <button type="button" onclick="window.location.reload()" class="text-white bg-amber-600 hover:bg-amber-700 font-medium rounded-lg px-6 py-3 text-center">Check payment status</button>
             @endif
             @auth
