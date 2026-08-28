@@ -27,6 +27,9 @@ class StoreReadinessTest extends TestCase
         $settings->invoice_vat_status = 'not_registered';
         $settings->site_email = 'support@example.test';
         $settings->save();
+        $category = ProductCategory::create(['name' => 'Digital', 'slug' => 'digital']);
+        Product::create(['name' => 'Digital catalogue entry', 'slug' => 'digital-entry', 'price' => 10,
+            'inventory_count' => 1, 'category_id' => $category->id, 'is_downloadable' => true]);
         $report = app(StoreReadinessService::class)->report();
         $this->assertSame(0, $report['blocked_count']);
         $this->assertFalse($report['production_certified']);

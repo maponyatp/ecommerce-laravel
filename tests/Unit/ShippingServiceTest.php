@@ -17,7 +17,7 @@ class ShippingServiceTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->service = new ShippingService();
+        $this->service = new ShippingService;
     }
 
     private function makeMethod(array $overrides = []): ShippingMethod
@@ -109,7 +109,7 @@ class ShippingServiceTest extends TestCase
         $this->assertNull($result);
     }
 
-    public function test_verify_address_returns_json_on_success(): void
+    public function test_verify_address_does_not_trust_a_placeholder_provider(): void
     {
         Http::fake([
             'api.address-verifier.com*' => Http::response(['verified' => true], 200),
@@ -117,6 +117,7 @@ class ShippingServiceTest extends TestCase
 
         $result = $this->service->verifyAddress('123 Main St');
 
-        $this->assertEquals(['verified' => true], $result);
+        $this->assertNull($result);
+        Http::assertNothingSent();
     }
 }

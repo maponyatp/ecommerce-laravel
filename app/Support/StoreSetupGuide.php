@@ -39,6 +39,7 @@ class StoreSetupGuide
             'contact_email' => ['url' => $this->settingsUrl('contact'), 'label' => 'Update contact details'],
             'seller', 'vat_status' => ['url' => $this->settingsUrl('business'), 'label' => 'Review business & invoices'],
             'payments' => StoreIntegrations::canAccess() ? ['url' => StoreIntegrations::getUrl(), 'label' => 'Manage payment credentials'] : null,
+            'catalogue' => ProductResource::canViewAny() ? ['url' => ProductResource::getUrl(), 'label' => 'Review products'] : null,
             'delivery' => ShippingMethodResource::canViewAny() ? ['url' => ShippingMethodResource::getUrl(), 'label' => 'Review delivery methods'] : null,
             default => null,
         };

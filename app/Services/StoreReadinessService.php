@@ -24,11 +24,13 @@ class StoreReadinessService
             $this->check('vat_status', 'VAT registration decision', $settings->invoice_vat_status === 'not_registered'
                 || ($settings->invoice_vat_status === 'registered' && preg_match('/^\d{10}$/', $settings->invoice_tax_number ?? '') === 1),
                 'Confirm VAT status and, if registered, the issued 10-digit VAT number in Business & invoices. This is not verification of the tax calculation.'),
+            $this->check('catalogue', 'Store catalogue exists', Product::exists(), 'Add actual products before inviting customers. Check prices, available stock, options and digital files; a catalogue entry alone does not prove it can be purchased.'),
             $this->check('payments', 'Payment gateway credentials', app(IkhokhaGateway::class)->isConfigured()
                 || (filled(config('services.stripe.key')) && filled(config('services.stripe.secret'))), 'Configure a supported merchant account. Credentials alone do not verify settlement.'),
-            $this->check('delivery', 'Delivery method for physical products', ! $physical || ShippingMethod::where('is_active', true)->where('base_rate', '>=', 0)->exists(), 'Physical products require a reviewed active delivery method. Confirm coverage, rates and capacity.'),
+            $this->check('delivery', 'Delivery method for physical products', ! $physical || $this->hasAvailableDelivery(), 'Physical products require an active method with valid rates, an explicit maximum weight and valid postal codes. Scheduled methods also need an open window with remaining capacity. Confirm coverage for your actual products and customers.'),
         ];
         $reviews = [
+            'Test actual catalogue items from product selection through checkout, including stock, variants and digital-file delivery. Catalogue presence alone is not a purchase test.',
             'Confirm a merchant-approved payment, receipt and refund, including duplicate and late callbacks.',
             'Review seller identity, invoice/tax treatment, policies and customer consent for the intended market.',
             'VAT vendors: obtain accountant sign-off on tax-inclusive advertised prices, delivery and digital-product VAT, exemptions, invoice issue timing, credit notes and records retention. Invoice branding does not implement these tax workflows.',
@@ -47,5 +49,13 @@ class StoreReadinessService
     private function check(string $id, string $label, bool $passed, string $action): array
     {
         return compact('id', 'label', 'passed', 'action');
+    }
+
+    private function hasAvailableDelivery(): bool
+    {
+        return app(ShippingService::class)->getAvailableShippingMethods()->contains(
+            fn (ShippingMethod $method) => ! $method->requires_delivery_slot
+                || app(DeliverySchedulingService::class)->choices($method->id)->isNotEmpty()
+        );
     }
 }

@@ -3,23 +3,22 @@
 namespace App\Services;
 
 use App\Models\ShippingMethod;
-use Illuminate\Support\Facades\Http;
 
 class ShippingService
 {
     public function getAvailableShippingMethods($cart = null, $address = null, ?string $postalCode = null)
     {
-        // Get all shipping methods
-        $availableMethods = ShippingMethod::where('is_active', true)->get();
+        // Use the same configuration rules for initial display and checkout repricing.
+        $availableMethods = ShippingMethod::where('is_active', true)->get()
+            ->filter(fn (ShippingMethod $method) => $method->isConfiguredForCheckout());
 
         if (! $cart || ! $address) {
             return $availableMethods;
         }
 
-        // Filter methods based on package weight, dimensions, and destination
+        // Coverage is an explicit postal-code allowlist, not a carrier quote.
         return $availableMethods->filter(function ($method) use ($cart, $address, $postalCode) {
             return (! $method->postal_codes || in_array(trim($postalCode ?? ''), $method->postal_codes, true))
-                && $method->base_rate >= 0 && $method->weight_rate >= 0
                 && $this->isMethodAvailable($method, $cart, $address);
         });
     }
@@ -34,19 +33,10 @@ class ShippingService
         return $baseRate + $weightRate + $distanceRate;
     }
 
-    public function verifyAddress($address)
+    /** No approved address-verification provider is integrated. Null means unverified. */
+    public function verifyAddress($address): ?array
     {
-        // Implement address verification logic
-        // This is a placeholder implementation. In a real-world scenario, you would integrate with an address verification API.
-        $response = Http::get('https://api.address-verifier.com', [
-            'address' => $address,
-            'api_key' => config('services.address_verifier.api_key'),
-        ]);
-
-        if ($response->successful()) {
-            return $response->json();
-        }
-
+        // Never transmit customer addresses to a placeholder or imply they were verified.
         return null;
     }
 

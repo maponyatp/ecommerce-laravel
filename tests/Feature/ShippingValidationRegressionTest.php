@@ -53,6 +53,23 @@ class ShippingValidationRegressionTest extends TestCase
         $this->assertDatabaseHas('shipping_methods', ['base_rate' => '999999.99', 'weight_rate' => '0.01']);
     }
 
+    public function test_activating_delivery_requires_an_explicit_maximum_weight(): void
+    {
+        $method = ShippingMethod::create($this->payload());
+        foreach ([null, ''] as $value) {
+            $payload = array_replace($this->payload(), ['max_weight' => $value]);
+            $this->postJson('/shipping', $payload)->assertUnprocessable()->assertJsonValidationErrors('max_weight');
+            $this->putJson('/shipping/'.$method->id, $payload)->assertUnprocessable()->assertJsonValidationErrors('max_weight');
+        }
+        $payload = $this->payload();
+        unset($payload['max_weight']);
+        $this->postJson('/shipping', $payload)->assertUnprocessable()->assertJsonValidationErrors('max_weight');
+        $this->putJson('/shipping/'.$method->id, $payload)->assertUnprocessable()->assertJsonValidationErrors('max_weight');
+        $this->assertSame(20.0, $method->fresh()->max_weight);
+        $this->post('/shipping', array_replace($payload, ['is_active' => false]))->assertRedirect(route('shipping.index'));
+        $this->assertDatabaseCount('shipping_methods', 2);
+    }
+
     public function test_admin_form_rejects_silent_rounding_of_delivery_rates_and_weight(): void
     {
         // Focus on form validation; separate access tests cover resource permissions.
