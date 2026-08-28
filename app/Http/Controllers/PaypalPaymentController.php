@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 class PaypalPaymentController extends Controller
 {
     private $paymentGatewayService;
+
     private $subscriptionService;
 
     public function __construct(PaymentGatewayService $paymentGatewayService, SubscriptionService $subscriptionService)
@@ -24,7 +25,7 @@ class PaypalPaymentController extends Controller
 
         $result = $this->paymentGatewayService->processPaypalPayment($paymentMethodId, $amount);
 
-        return response()->json($result);
+        return response()->json($result, ($result['success'] ?? false) ? 200 : 409);
     }
 
     public function createSubscription(Request $request)

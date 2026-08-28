@@ -2,42 +2,31 @@
 
 namespace App\Services;
 
-use App\Factories\PaymentGatewayFactory;
-use App\Interfaces\PaymentGatewayInterface;
-use App\Models\PaymentMethod;
-use InvalidArgumentException;
-
+/** Legacy compatibility only. Arbitrary charges must not bypass order checkout. */
 class PaymentGatewayService
 {
-    protected $paymentGateway;
-
-    public function __construct()
+    private function unavailable(): array
     {
-        // $this->paymentGateway = PaymentGatewayFactory::create($gateway);
+        return ['success' => false, 'error' => 'This legacy payment flow is unavailable. Use the supported order checkout workflow.'];
     }
 
-    // public function __construct()
-    // {
-    //     $this->stripeClient = new StripeClient(Config::get('services.stripe.secret'));
-    //     $this->paypalContext = new ApiContext(new OAuthTokenCredential(
-    //         Config::get('services.paypal.client_id'),
-    //         Config::get('services.paypal.secret')
-    //     ));
-    //     $this->paypalContext->setConfig(Config::get('services.paypal.settings'));
-    // }
+    public function processPaypalPayment($paymentMethodId, $amount): array
+    {
+        return $this->unavailable();
+    }
 
     public function processPayment(float $amount, array $paymentDetails): array
     {
-        return $this->paymentGateway->processPayment($amount, $paymentDetails);
+        return $this->unavailable();
     }
 
     public function processSubscription(string $planId, array $subscriptionDetails): array
     {
-        return $this->paymentGateway->processSubscription($planId, $subscriptionDetails);
+        return $this->unavailable();
     }
 
     public function refundPayment(string $transactionId, float $amount): array
     {
-        return $this->paymentGateway->refundPayment($transactionId, $amount);
+        return $this->unavailable();
     }
 }

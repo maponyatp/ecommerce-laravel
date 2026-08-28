@@ -1,73 +1,42 @@
 @extends('layouts.app')
-
+@section('title', 'Saved payment references')
+@include('payment_methods.styles')
 @section('content')
-<div class="container">
-    <h2>Manage Payment Methods</h2>
-    <div class="row mb-4">
-        <div class="col-md-6">
+<section class="payment-workspace" aria-labelledby="payment-page-title">
+    <h1 id="payment-page-title">Saved payment references</h1>
+    <p class="payment-intro">Manage references supplied by your payment provider. These are not verified saved cards, and adding a reference does not enable a payment gateway or charge money. Complete purchases through the store checkout.</p>
+    @if($errors->any())
+        <div class="payment-errors" role="alert"><strong>Please check these details.</strong><ul>@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>
+    @endif
+    <div class="payment-grid">
+        <section class="payment-panel" aria-labelledby="saved-heading">
+            <h2 id="saved-heading">Your references</h2>
+            @forelse($paymentMethods as $method)
+                <article class="payment-item">
+                    <strong>{{ $method->name }}</strong>@if($method->is_default)<span class="payment-badge">Default</span>@endif
+                    <p class="payment-reference">Reference ending {{ substr($method->details, -4) }}</p>
+                    <div class="payment-actions">
+                        <a href="{{ route('payment_methods.edit', $method->id) }}" aria-label="Edit {{ $method->name }}">Edit</a>
+                        @unless($method->is_default)
+                            <form method="POST" action="{{ route('payment_methods.setDefault', $method->id) }}">@csrf<button type="submit" aria-label="Make {{ $method->name }} default">Make default</button></form>
+                        @endunless
+                        <form method="POST" action="{{ route('payment_methods.destroy', $method->id) }}">@csrf @method('DELETE')<button class="payment-remove" type="submit" aria-label="Remove {{ $method->name }}">Remove</button></form>
+                    </div>
+                </article>
+            @empty
+                <p>No references saved yet. You can still use the supported checkout payment options.</p>
+            @endforelse
+        </section>
+        <section class="payment-panel" aria-labelledby="add-heading">
+            <h2 id="add-heading">Add a provider reference</h2>
             <form action="{{ route('payment_methods.store') }}" method="POST">
                 @csrf
-                <div class="form-group">
-                    <label for="name">Payment Method Name</label>
-                    <input type="text" class="form-control" id="name" name="name" required>
-                </div>
-                <div class="form-group">
-                    <label for="details">Payment-provider reference</label>
-                    <textarea class="form-control" id="details" name="details" required></textarea>
-                    <small class="form-text text-muted">Enter only a token supplied by your payment provider (for example, a Stripe <code>pm_</code> token). Never enter card details or a CVV.</small>
-                </div>
-                <button type="submit" class="btn btn-primary">Add Payment Method</button>
+                <div class="payment-field"><label for="name">Reference name</label><input type="text" id="name" name="name" value="{{ old('name') }}" maxlength="255" required placeholder="For example, my personal account"></div>
+                <div class="payment-field"><label for="details">Provider-issued reference</label><input type="text" id="details" name="details" maxlength="255" required autocomplete="off" spellcheck="false" aria-describedby="reference-help"><small id="reference-help">Use a reference beginning pm_, tok_, paypal_ or vault_. Do not enter card numbers, CVVs, passwords or API keys.</small></div>
+                <label class="payment-check"><input type="checkbox" name="is_default" value="1" @checked(old('is_default', false))> Use as my default saved reference</label>
+                <div class="payment-actions"><button class="payment-primary" type="submit">Save reference</button></div>
             </form>
-        </div>
+        </section>
     </div>
-    <hr>
-    <div class="row">
-        @foreach ($paymentMethods as $method)
-        <div class="col-md-4">
-            <div class="card mb-4 payment-card">
-                <div class="card-body">
-                    <h5 class="card-title">{{ $method->name }}</h5>
-                    <p class="card-text">{{ $method->details }}</p>
-                    <a href="{{ route('payment_methods.edit', $method->id) }}" class="btn btn-secondary">Edit</a>
-                    <form action="{{ route('payment_methods.destroy', $method->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Are you sure?');">
-                        @csrf
-                        @method('DELETE')
-                        <button type="submit" class="btn btn-danger">Delete</button>
-                    </form>
-                    <form action="{{ route('payment_methods.setDefault', $method->id) }}" method="POST" class="d-inline">
-                        @csrf
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" name="is_default" id="defaultCheck{{ $method->id }}" {{ $method->is_default ? 'checked' : '' }}>
-                            <label class="form-check-label" for="defaultCheck{{ $method->id }}">
-                                Set as Default
-                            </label>
-                        </div>
-                        <button type="submit" class="btn btn-info">Update</button>
-                    </form>
-                </div>
-            </div>
-        </div>
-        @endforeach
-    </div>
-</div>
+</section>
 @endsection
-
-@push('styles')
-<style>
-    .payment-card {
-        transition: transform 0.3s, box-shadow 0.3s;
-        border-radius: 10px;
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-    }
-    .payment-card:hover {
-        transform: translateY(-10px);
-        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
-    }
-</style>
-@endpush
-
-@push('scripts')
-<script>
-    // Optional JavaScript for handling specific actions on this page
-</script>
-@endpush
