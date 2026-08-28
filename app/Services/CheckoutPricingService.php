@@ -8,9 +8,12 @@ use Illuminate\Validation\ValidationException;
 
 class CheckoutPricingService
 {
+    // Invoices and order components use DECIMAL(10,2), narrower than orders.total_amount.
+    private const MAX_AMOUNT = 99999999.99;
+
     public function calculate(array $cart, array $address, ?string $couponCode = null, bool $dropship = false): array
     {
-        $subtotal = round(collect($cart)->sum(fn ($item) => $item['price'] * $item['quantity']), 2);
+        $subtotal = $this->checkedAmount(collect($cart)->sum(fn ($item) => $item['price'] * $item['quantity']));
         $physical = collect($cart)->contains(fn ($item) => ! $item['is_downloadable']);
         $discount = 0;
         if ($couponCode) {
@@ -18,7 +21,7 @@ class CheckoutPricingService
             if (! $coupon['valid']) {
                 throw ValidationException::withMessages(['coupon' => $coupon['error']]);
             }
-            $discount = $coupon['discount'];
+            $discount = $this->checkedAmount($coupon['discount']);
         }
         $shipping = 0;
         $tax = 0;
@@ -47,11 +50,25 @@ class CheckoutPricingService
             throw ValidationException::withMessages(['delivery_slot_id' => 'Digital orders do not need a delivery window.']);
         }
 
+        // Reject invalid or unrepresentable amounts before creating orders, holds or payment links.
+        $shipping = $this->checkedAmount($shipping);
+        $tax = $this->checkedAmount($tax);
+        $total = $this->checkedAmount(max(0, $subtotal - $discount) + $shipping + $tax);
+
         return [
             'delivery_slot' => $deliverySlot,
-            'subtotal' => $subtotal, 'discount' => round($discount, 2), 'shipping' => round($shipping, 2),
-            'tax' => round($tax, 2), 'total' => round(max(0, $subtotal - $discount) + $shipping + $tax, 2),
+            'subtotal' => $subtotal, 'discount' => round($discount, 2), 'shipping' => $shipping,
+            'tax' => $tax, 'total' => $total,
             'currency' => StoreMoney::currency(),
         ];
+    }
+
+    private function checkedAmount(float $amount): float
+    {
+        if (! is_finite($amount) || $amount < 0 || round($amount, 2) > self::MAX_AMOUNT) {
+            throw ValidationException::withMessages(['cart' => 'This order exceeds supported checkout amounts or contains invalid pricing. Please adjust your cart or contact the store.']);
+        }
+
+        return round($amount, 2);
     }
 }

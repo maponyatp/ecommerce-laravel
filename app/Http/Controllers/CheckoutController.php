@@ -438,7 +438,7 @@ class CheckoutController extends Controller
             'shipping_country' => [Rule::requiredIf($physical), 'nullable', Rule::in(array_keys(config('commerce.delivery_countries')))],
             'shipping_city' => [Rule::requiredIf($physical), 'nullable', 'string', 'max:120'],
             'shipping_region' => ['nullable', 'string', 'max:120'],
-            'shipping_postal_code' => [Rule::requiredIf($physical), 'nullable', 'string', 'max:20'],
+            'shipping_postal_code' => [Rule::requiredIf($physical), 'nullable', 'string', 'regex:/^[0-9]{4}$/D'],
         ];
     }
 

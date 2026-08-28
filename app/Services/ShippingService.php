@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\ShippingMethod;
+use Illuminate\Validation\ValidationException;
 
 class ShippingService
 {
@@ -67,7 +68,15 @@ class ShippingService
     private function calculateTotalWeight($cart)
     {
         return collect($cart)->sum(function (array $item): float {
-            return (float) ($item['weight'] ?? 0) * (int) ($item['quantity'] ?? 0);
+            if ($item['is_downloadable'] ?? false) {
+                return 0;
+            }
+            $weight = $item['weight'] ?? 0;
+            if (! is_numeric($weight) || ! is_finite((float) $weight) || (float) $weight < 0) {
+                throw ValidationException::withMessages(['cart' => 'An item has an invalid delivery weight. Please contact the store before checking out.']);
+            }
+
+            return (float) $weight * (int) ($item['quantity'] ?? 0);
         });
     }
 
