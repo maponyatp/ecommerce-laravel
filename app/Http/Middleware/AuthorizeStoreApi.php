@@ -31,6 +31,10 @@ class AuthorizeStoreApi
         $write = in_array($action, ['store', 'update', 'destroy', 'addProducts', 'removeProducts', 'placeOrder'], true);
         abort_unless($user->tokenCan($area.($write ? ':write' : ':read')), 403);
 
-        return $next($request);
+        $response = $next($request);
+        $response->headers->set('Cache-Control', 'no-store, private');
+        $response->headers->set('Pragma', 'no-cache');
+
+        return $response;
     }
 }

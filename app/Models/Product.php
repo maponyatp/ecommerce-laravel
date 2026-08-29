@@ -22,6 +22,8 @@ class Product extends Model implements Orderable
 
     protected $table = 'products';
 
+    protected $hidden = ['downloadable_file'];
+
     protected $fillable = [
         'name',
         'slug',
@@ -311,7 +313,9 @@ class Product extends Model implements Orderable
 
     public function scopeOrderByStorePrice(Builder $query, bool $descending = false): void
     {
-        $query->orderByRaw(static::storePriceSql().($descending ? ' DESC' : ' ASC'), [StoreMoney::currency()]);
+        $sql = static::storePriceSql();
+        $query->orderByRaw("($sql IS NULL) ASC, $sql".($descending ? ' DESC' : ' ASC'),
+            [StoreMoney::currency(), StoreMoney::currency()]);
     }
 
     public function isLowStock()
