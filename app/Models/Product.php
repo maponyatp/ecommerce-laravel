@@ -132,12 +132,27 @@ class Product extends Model implements Orderable
 
     public function getStorePriceLabelAttribute(): string
     {
+        if (! $this->supportsStorePricing()) {
+            return 'Pricing option unavailable';
+        }
         if (! $this->has_variants) {
-            return StoreMoney::format($this->price);
+            return StoreMoney::format($this->base_store_price);
         }
         $price = $this->purchasableVariants()->min('price');
 
         return $price === null ? 'Options unavailable' : 'From '.StoreMoney::format($price);
+    }
+
+    public function supportsStorePricing(): bool
+    {
+        return in_array($this->pricing_type, [null, '', 'fixed', 'free'], true)
+            && (! $this->has_variants || in_array($this->pricing_type, [null, '', 'fixed'], true));
+    }
+
+    /** Effective simple-product price, including legacy free rows with an old stored price. */
+    public function getBaseStorePriceAttribute(): ?string
+    {
+        return $this->supportsStorePricing() ? ($this->isFree() ? '0.00' : $this->price) : null;
     }
 
     public function options()
@@ -202,6 +217,15 @@ class Product extends Model implements Orderable
 
     protected static function booted(): void
     {
+        static::saving(function (Product $product) {
+            if (blank($product->pricing_type)) {
+                $product->pricing_type = 'fixed';
+            }
+            if ($product->isFree()) {
+                $product->price = 0;
+            }
+        });
+
         static::creating(function ($product) {
             // Auto-generate slug if not provided
             if (empty($product->slug)) {
@@ -282,7 +306,7 @@ class Product extends Model implements Orderable
 
     public static function storePriceSql(): string
     {
-        return '(CASE WHEN products.has_variants = 1 THEN (SELECT MIN(pv.price) FROM product_variants pv WHERE pv.product_id = products.id AND pv.active = 1 AND pv.currency = ?) ELSE products.price END)';
+        return "(CASE WHEN products.pricing_type IS NOT NULL AND products.pricing_type NOT IN ('', 'fixed', 'free') THEN NULL WHEN products.has_variants = 1 THEN (SELECT MIN(pv.price) FROM product_variants pv WHERE pv.product_id = products.id AND pv.active = 1 AND pv.currency = ? AND (products.pricing_type IS NULL OR products.pricing_type IN ('', 'fixed'))) WHEN products.pricing_type = 'free' THEN 0 ELSE products.price END)";
     }
 
     public function scopeOrderByStorePrice(Builder $query, bool $descending = false): void

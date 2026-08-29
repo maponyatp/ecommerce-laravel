@@ -23,34 +23,19 @@
                     <p>{{ $product->long_description }}</p>
 
                     <br>
-                    @if($product->has_variants)
+                    @if(! $product->supportsStorePricing())
+                        <p class="text-amber-700" role="status">Pricing option unavailable. Please contact the store; this item cannot currently be ordered online.</p>
+                    @elseif($product->has_variants)
                         <x-variant-selector :product="$product" />
                     @elseif($product->isFree())
                         <p><strong>Price:</strong> Free</p>
+                        @if(! $product->is_downloadable)<p class="text-sm text-gray-600">The item is free; delivery charges may still apply at checkout.</p>@endif
                         <form action="{{ route('cart.add', $product) }}" method="POST">
                             @csrf
-                            <button type="submit" class="btn btn-success mt-2">Add to cart — free checkout</button>
+                            <button type="submit" class="btn btn-success mt-2" @disabled($product->inventory_count <= 0)>{{ $product->inventory_count <= 0 ? 'Out of stock' : ($product->is_downloadable ? 'Add to cart — free checkout' : 'Add free item to cart') }}</button>
                         </form>
-                    @elseif($product->isDonationBased())
-                        <form action="{{ route('cart.add', $product) }}" method="POST" class="d-inline">
-                            @csrf
-                            <div class="form-group">
-                                <label for="donation_amount">Support this product (Suggested: {{ \App\Support\StoreMoney::format($product->suggested_price) }})</label>
-                                <input type="number" 
-                                       name="price" 
-                                       id="donation_amount" 
-                                       class="form-control" 
-                                       value="{{ $product->suggested_price }}"
-                                       min="{{ $product->minimum_price }}"
-                                       step="0.01">
-                            </div>
-                            <button type="submit" class="btn btn-success mt-2">Support & Download</button>
-                        </form>
-                        @if($product->minimum_price <= 0)
-                            <p class="text-sm">Complete checkout to receive your protected download link.</p>
-                        @endif
                     @else
-                        <p><strong>Price:</strong> {{ \App\Support\StoreMoney::format($product->price) }}</p>
+                        <p><strong>Price:</strong> {{ $product->store_price_label }}</p>
                         @if($product->inventory_count > 0)
                             <form action="{{ route('cart.add', $product) }}" method="POST" class="d-inline">
                                 @csrf
@@ -92,10 +77,12 @@
                         @endif
                     @endif
                     @endauth
+                    @if($product->category)
                     <form action="{{ route('products.addToCompare', ['category' => $product->category, 'product' => $product]) }}" method="POST" class="d-inline">
                         @csrf
                         <button type="submit" class="btn btn-primary mt-2">Add to Compare</button>
                     </form>
+                    @endif
                     <a href="{{ route('products.compare') }}" class="text-blue-700 underline">View comparison</a>
                 </div>
             </div>
@@ -112,7 +99,7 @@
                                         <img src="/images/placeholder.png" alt="{{ $recommendedProduct->name }}" class="card-img-top">
                                         <div class="card-body">
                                             <h5 class="card-title">{{ $recommendedProduct->name }}</h5>
-                                            <p class="card-text">{{ \App\Support\StoreMoney::format($recommendedProduct->price) }}</p>
+                                            <p class="card-text">{{ $recommendedProduct->store_price_label }}</p>
                                             <a href="{{ route('products.show', $recommendedProduct) }}" class="btn btn-sm btn-primary">View Product</a>
                                             @if($recommendedProduct->inventory_count == 0)
                                                 <p class="text-danger mt-2">Out of Stock</p>
@@ -135,7 +122,7 @@
 
 
 
-@unless($product->has_variants)
+@if(! $product->has_variants && $product->supportsStorePricing())
 <script type="application/ld+json">
 {!! json_encode([
     '@context' => 'https://schema.org/',
@@ -148,7 +135,7 @@
         '@type' => 'Offer',
         'url' => route('products.show', $product),
         'priceCurrency' => \App\Support\StoreMoney::currency(),
-        'price' => $product->price,
+        'price' => $product->base_store_price,
         'availability' => $product->inventory_count > 0
             ? 'https://schema.org/InStock'
             : 'https://schema.org/OutOfStock',
@@ -159,7 +146,7 @@
     ],
 ], JSON_HEX_TAG|JSON_HEX_AMP|JSON_HEX_APOS|JSON_HEX_QUOT|JSON_PRETTY_PRINT) !!}
 </script>
-@endunless
+@endif
     
 @endsection
 

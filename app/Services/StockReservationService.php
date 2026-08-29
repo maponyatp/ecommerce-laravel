@@ -46,14 +46,14 @@ class StockReservationService
         foreach ($order->items()->orderBy('product_id')->orderBy('product_variant_id')->get() as $item) {
             $product = Product::query()->lockForUpdate()->find($item->product_id);
             $variant = $item->product_variant_id ? ProductVariant::where('product_id', $item->product_id)->lockForUpdate()->find($item->product_variant_id) : null;
-            if (! $product || $item->quantity < 1 || ($item->product_variant_id && (! $variant || ! $variant->active
+            if (! $product || ! $product->supportsStorePricing() || $item->quantity < 1 || ($item->product_variant_id && (! $variant || ! $variant->active
                 || ! $product->has_variants || $variant->currency !== $order->currency || $variant->currency !== StoreMoney::currency()
                 || $product->is_downloadable || ($product->pricing_type && $product->pricing_type !== 'fixed')))
                 || (! $item->product_variant_id && $product->has_variants)
                 || $this->available($product, $order->id, true, $variant) < $item->quantity) {
                 throw ValidationException::withMessages(['cart' => 'An item was just reserved by another customer. Please review your cart.']);
             }
-            if (round((float) ($variant?->price ?? $product->price), 2) !== round((float) $item->price, 2)) {
+            if (round((float) ($variant?->price ?? $product->base_store_price), 2) !== round((float) $item->price, 2)) {
                 throw ValidationException::withMessages(['cart' => 'A product price changed. Please review the updated total.']);
             }
             DB::table('stock_reservations')->insert([

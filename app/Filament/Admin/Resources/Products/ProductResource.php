@@ -87,26 +87,21 @@ class ProductResource extends Resource
                             ->options([
                                 'fixed' => 'Fixed Price',
                                 'free' => 'Free',
-                                'donation' => 'Pay What You Want',
                             ])
+                            ->required()
+                            ->rules(['in:fixed,free'])
+                            ->helperText('Free sets the item price to zero; delivery charges may still apply. Pay-what-you-want pricing is not supported at checkout.')
                             ->default('fixed')
+                            ->formatStateUsing(fn ($state) => filled($state) ? $state : 'fixed')
                             ->live(),
                         TextInput::make('price')
                             ->disabled(fn (?Product $record) => $record?->has_variants ?? false)
                             ->helperText(fn (?Product $record) => $record?->has_variants ? 'Prices are managed in Catalogue → Product variants.' : null)
                             ->required()
                             ->numeric()
+                            ->minValue(0)->maxValue(99999999.99)->rules(['decimal:0,2'])
                             ->prefix(StoreMoney::currency())
-                            ->visible(fn (Get $get) => $get('pricing_type') === 'fixed'),
-                        TextInput::make('suggested_price')
-                            ->numeric()
-                            ->prefix(StoreMoney::currency())
-                            ->visible(fn (Get $get) => $get('pricing_type') === 'donation'),
-                        TextInput::make('minimum_price')
-                            ->numeric()
-                            ->prefix(StoreMoney::currency())
-                            ->default(0)
-                            ->visible(fn (Get $get) => $get('pricing_type') === 'donation'),
+                            ->visible(fn (Get $get) => in_array($get('pricing_type'), [null, '', 'fixed'], true)),
                     ]),
 
                 Section::make('Inventory')

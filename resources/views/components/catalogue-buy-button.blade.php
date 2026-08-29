@@ -1,5 +1,7 @@
 @props(['product'])
-@if($product->has_variants)
+@if(! $product->supportsStorePricing())
+    <span class="mt-3 inline-flex min-h-11 items-center px-4 py-3 text-sm text-gray-600">Unavailable</span>
+@elseif($product->has_variants)
     <a href="{{ route('products.show', $product) }}" class="store-primary-bg mt-3 inline-flex min-h-11 items-center justify-center rounded-lg px-4 py-3 text-sm font-semibold text-white">Choose options</a>
 @else
     <form action="{{ route('cart.add', $product) }}" method="POST" class="mt-3">@csrf

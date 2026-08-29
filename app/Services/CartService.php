@@ -79,12 +79,15 @@ class CartService
         }
 
         // A fixed allowlist: browser/session metadata never determines prices, shipping or digital delivery.
-        return ['name' => $product->name, 'price' => $product->price, 'quantity' => $quantity,
+        return ['name' => $product->name, 'price' => $product->base_store_price, 'quantity' => $quantity,
             'is_downloadable' => $product->is_downloadable, 'weight' => (float) ($product->weight ?? 0)];
     }
 
     private function availabilityError(Product $product, int $quantity, ?ProductVariant $variant = null, ?int $variantId = null): ?string
     {
+        if (! $product->supportsStorePricing()) {
+            return 'This product pricing option is not available at checkout. Please contact the store or remove the item.';
+        }
         if ($product->has_variants && ! $variantId) {
             return 'Choose an option on the product page before adding this product.';
         }
@@ -93,7 +96,7 @@ class CartService
             || ($product->pricing_type && $product->pricing_type !== 'fixed'))) {
             return 'This product option is no longer available. Please remove it or choose another option.';
         }
-        $price = $variant?->price ?? $product->price;
+        $price = $variant?->price ?? $product->base_store_price;
         if (! is_numeric($price) || ! is_finite((float) $price) || (float) $price < 0) {
             return 'This product has an unavailable price. Please remove it or contact the store.';
         }

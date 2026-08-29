@@ -20,10 +20,14 @@
                     <tr class="border-t"><th scope="row" class="p-4">Availability</th>@foreach($products as $product)<td class="p-4">{{ $product->has_variants ? 'Choose an option to check stock' : (app(\App\Services\StockReservationService::class)->available($product) > 0 ? 'In stock' : 'Out of stock') }}</td>@endforeach</tr>
                     <tr class="border-t"><th scope="row" class="p-4">Actions</th>@foreach($products as $product)<td class="p-4">
                         <a href="{{ route('products.show', $product) }}" class="text-blue-700 underline">View {{ $product->name }}</a>
+                        @if($product->category)
                         <form action="{{ route('products.removeFromCompare', ['category' => $product->category, 'product' => $product]) }}" method="POST" class="mt-3">
                             @csrf @method('DELETE')
                             <button type="submit" class="text-red-700" aria-label="Remove {{ $product->name }} from comparison">Remove</button>
                         </form>
+                        @else
+                            <p class="mt-3 text-sm text-gray-600">Use Clear comparison below to remove this item.</p>
+                        @endif
                     </td>@endforeach</tr>
                 </tbody>
             </table>
